@@ -4,13 +4,13 @@
  * message passing, and background service communication.
  */
 
-import type { MeetingRecord, ActionItem } from './meeting.js';
 import type { AzureSpeechConfig } from './azure.js';
+import type { MeetingRecord } from './meeting.js';
 
 /**
  * Chrome Extension message types for inter-component communication
  */
-export type ExtensionMessageType = 
+export type ExtensionMessageType =
   | 'MEETING_DETECTED'
   | 'START_TRANSCRIPTION'
   | 'STOP_TRANSCRIPTION'

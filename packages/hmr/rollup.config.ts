@@ -2,7 +2,6 @@ import sucrase from '@rollup/plugin-sucrase';
 import type { Plugin, RollupOptions } from 'rollup';
 
 const plugins = [
-  // @ts-expect-error Because of the lack of calling signature
   sucrase({
     exclude: ['node_modules/**'],
     transforms: ['typescript'],

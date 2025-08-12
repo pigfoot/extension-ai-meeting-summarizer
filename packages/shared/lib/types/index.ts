@@ -21,7 +21,7 @@ export type {
   MeetingSearchCriteria,
   MeetingSearchResults,
   MeetingAnalytics,
-} from './meeting.js';
+} from './meeting';
 
 // Azure Speech API types
 export type {
@@ -51,7 +51,7 @@ export type {
   CreateTranscriptionJobRequest,
   TranscriptionSession,
   SpeechServiceMetrics,
-} from './azure.js';
+} from './azure';
 
 // Chrome Extension specific types
 export type {
@@ -88,14 +88,4 @@ export type {
   ServiceWorkerState,
   ExtensionPermissions,
   StorageResult,
-} from './extension.js';
-
-// Re-export existing shared types for backward compatibility
-export type {
-  ColorType,
-  ExcludeValuesFromBaseArrayType,
-  ManifestType,
-} from '../utils/types.js';
-
-// Re-export utility types from type-fest
-export type * from 'type-fest';
+} from './extension';

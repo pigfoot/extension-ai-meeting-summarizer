@@ -29,7 +29,7 @@
     "moduleResolution": "bundler",
     "target": "ESNext",
     "lib": ["DOM", "DOM.Iterable", "ESNext", "WebWorker"],
-    "types": ["node", "chrome", "web"],
+    "types": ["node", "chrome"],
     "baseUrl": ".",
     "paths": {
       "@extension/shared": ["packages/shared/lib/index.ts"],
@@ -38,6 +38,8 @@
       "@extension/storage/*": ["packages/storage/lib/*"],
       "@extension/meeting-core": ["packages/meeting-core/lib/index.ts"],
       "@extension/meeting-core/*": ["packages/meeting-core/lib/*"],
+      "@extension/azure-speech": ["packages/azure-speech/lib/index.ts"],
+      "@extension/azure-speech/*": ["packages/azure-speech/lib/*"],
       "@extension/ui": ["packages/ui/lib/index.ts"],
       "@extension/ui/*": ["packages/ui/lib/*"],
       "@extension/i18n": ["packages/i18n/lib/index.ts"],

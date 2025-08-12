@@ -6,18 +6,31 @@
 
 import { createStorage } from '../base/base.js';
 import { StorageEnum } from '../base/enums.js';
-import type { BaseStorageType, StorageConfigType } from '../base/types.js';
-import type {
-  AzureSpeechConfig,
-  UserPreferences,
-  ExtensionSettings,
-  AuthTokens,
-} from '@extension/shared/lib/types';
+import type { BaseStorageType } from '../base/types.js';
+// Use generic types to avoid circular dependency with shared package
+interface AzureSpeechConfig {
+  subscriptionKey?: string;
+  serviceRegion?: string;
+  language?: string;
+  endpoint?: string;
+  customModel?: string;
+  enableSpeakerDiarization?: boolean;
+  enableWordLevelTimestamps?: boolean;
+  profanityAction?: 'None' | 'Removed' | 'Masked';
+  punctuationAction?: 'None' | 'Dictated' | 'Automatic' | 'DictatedAndAutomatic';
+  metadata?: Record<string, string>;
+  requestTimeout?: number;
+  maxSpeakers?: number;
+  phraseHints?: string[];
+}
+
+type UserPreferences = Record<string, unknown>;
+type ExtensionSettings = Record<string, unknown>;
 
 /**
  * Configuration validation error types
  */
-export type ConfigValidationError = 
+export type ConfigValidationError =
   | 'INVALID_SUBSCRIPTION_KEY'
   | 'INVALID_REGION'
   | 'INVALID_LANGUAGE'
@@ -146,25 +159,22 @@ export const encryptionUtils = {
    */
   async deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
     const encoder = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(password),
-      { name: 'PBKDF2' },
-      false,
-      ['deriveBits', 'deriveKey']
-    );
+    const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(password), { name: 'PBKDF2' }, false, [
+      'deriveBits',
+      'deriveKey',
+    ]);
 
     return crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
-        salt: salt,
+        salt: salt as BufferSource,
         iterations: 100000,
         hash: 'SHA-256',
       },
       keyMaterial,
       { name: 'AES-GCM', length: 256 },
       false,
-      ['encrypt', 'decrypt']
+      ['encrypt', 'decrypt'],
     );
   },
 
@@ -176,25 +186,21 @@ export const encryptionUtils = {
       const salt = this.generateSalt();
       const iv = this.generateIV();
       const key = await this.deriveKey(password, salt);
-      
+
       const encoder = new TextEncoder();
       const dataString = JSON.stringify(data);
       const dataBuffer = encoder.encode(dataString);
-      
-      const encryptedBuffer = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv: iv },
-        key,
-        dataBuffer
-      );
-      
+
+      const encryptedBuffer = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv as BufferSource }, key, dataBuffer);
+
       const encryptedArray = new Uint8Array(encryptedBuffer);
       const encryptedData = btoa(String.fromCharCode(...encryptedArray));
-      
+
       // Generate checksum for integrity
       const checksumBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
       const checksumArray = new Uint8Array(checksumBuffer);
       const checksum = btoa(String.fromCharCode(...checksumArray));
-      
+
       return {
         encryptedData,
         algorithm: 'AES-GCM',
@@ -217,42 +223,38 @@ export const encryptionUtils = {
       const salt = new Uint8Array(
         atob(encryptedConfig.salt)
           .split('')
-          .map(char => char.charCodeAt(0))
+          .map(char => char.charCodeAt(0)),
       );
-      
+
       const iv = new Uint8Array(
         atob(encryptedConfig.iv)
           .split('')
-          .map(char => char.charCodeAt(0))
+          .map(char => char.charCodeAt(0)),
       );
-      
+
       const encryptedData = new Uint8Array(
         atob(encryptedConfig.encryptedData)
           .split('')
-          .map(char => char.charCodeAt(0))
+          .map(char => char.charCodeAt(0)),
       );
-      
+
       const key = await this.deriveKey(password, salt);
-      
-      const decryptedBuffer = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: iv },
-        key,
-        encryptedData
-      );
-      
+
+      const decryptedBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv as BufferSource }, key, encryptedData);
+
       const decoder = new TextDecoder();
       const decryptedString = decoder.decode(decryptedBuffer);
-      
+
       // Verify checksum
       const dataBuffer = new TextEncoder().encode(decryptedString);
       const checksumBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
       const checksumArray = new Uint8Array(checksumBuffer);
       const checksum = btoa(String.fromCharCode(...checksumArray));
-      
+
       if (checksum !== encryptedConfig.checksum) {
         throw new Error('Data integrity check failed');
       }
-      
+
       return JSON.parse(decryptedString);
     } catch (error) {
       throw new Error(`Decryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -276,12 +278,25 @@ export const validateAzureConfig = (config: Partial<AzureSpeechConfig>): ConfigV
 
   // Region validation
   const validRegions = [
-    'eastus', 'eastus2', 'southcentralus', 'westus2', 'westus3',
-    'australiaeast', 'southeastasia', 'northeurope', 'swedencentral',
-    'uksouth', 'westeurope', 'centralus', 'southafricanorth',
-    'centralindia', 'eastasia', 'japaneast', 'koreacentral'
+    'eastus',
+    'eastus2',
+    'southcentralus',
+    'westus2',
+    'westus3',
+    'australiaeast',
+    'southeastasia',
+    'northeurope',
+    'swedencentral',
+    'uksouth',
+    'westeurope',
+    'centralus',
+    'southafricanorth',
+    'centralindia',
+    'eastasia',
+    'japaneast',
+    'koreacentral',
   ];
-  
+
   if (!config.serviceRegion || !validRegions.includes(config.serviceRegion)) {
     errors.push('INVALID_REGION');
   }
@@ -360,14 +375,14 @@ export const secureAzureConfigSerialization = {
       if (!text || text.trim() === '') {
         return null;
       }
-      
+
       const parsed = JSON.parse(text);
-      
+
       // Validate required fields
       if (!parsed.encryptedData || !parsed.algorithm || !parsed.iv || !parsed.salt) {
         throw new Error('Invalid encrypted configuration format');
       }
-      
+
       return parsed as SecureAzureConfig;
     } catch (error) {
       console.error('Failed to deserialize Azure configuration:', error);
@@ -544,7 +559,7 @@ export const configUtils = {
   async createEncryptedAzureConfig(
     config: AzureSpeechConfig,
     password: string,
-    displayName: string = 'Default Configuration'
+    displayName: string = 'Default Configuration',
   ): Promise<SecureAzureConfig> {
     const validation = validateAzureConfig(config);
     if (!validation.isValid) {
@@ -552,7 +567,7 @@ export const configUtils = {
     }
 
     const encrypted = await encryptionUtils.encrypt(config, password);
-    
+
     return {
       ...encrypted,
       configId: crypto.randomUUID(),
@@ -566,10 +581,7 @@ export const configUtils = {
   /**
    * Decrypt Azure configuration
    */
-  async decryptAzureConfig(
-    secureConfig: SecureAzureConfig,
-    password: string
-  ): Promise<AzureSpeechConfig> {
+  async decryptAzureConfig(secureConfig: SecureAzureConfig, password: string): Promise<AzureSpeechConfig> {
     return encryptionUtils.decrypt(secureConfig, password);
   },
 
@@ -578,7 +590,7 @@ export const configUtils = {
    */
   async addConfigHistoryEntry(
     historyStorage: BaseStorageType<ConfigHistoryEntry[]>,
-    entry: Omit<ConfigHistoryEntry, 'entryId' | 'timestamp'>
+    entry: Omit<ConfigHistoryEntry, 'entryId' | 'timestamp'>,
   ): Promise<void> {
     const history = await historyStorage.get();
     const newEntry: ConfigHistoryEntry = {
@@ -586,7 +598,7 @@ export const configUtils = {
       entryId: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
     };
-    
+
     // Keep only last 100 entries
     const updatedHistory = [newEntry, ...history].slice(0, 100);
     await historyStorage.set(updatedHistory);
@@ -599,22 +611,22 @@ export const configUtils = {
     azureConfig?: SecureAzureConfig,
     userPreferences?: UserPreferences,
     extensionSettings?: ExtensionSettings,
-    description?: string
+    description?: string,
   ): Promise<ConfigBackup> {
     const backup: ConfigBackup = {
       backupId: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
-      azureConfig,
-      userPreferences,
-      extensionSettings,
-      description,
       backupSize: 0,
+      ...(azureConfig && { azureConfig }),
+      ...(userPreferences && { userPreferences }),
+      ...(extensionSettings && { extensionSettings }),
+      ...(description && { description }),
     };
-    
+
     // Calculate backup size
     const backupData = JSON.stringify(backup);
     backup.backupSize = new Blob([backupData]).size;
-    
+
     return backup;
   },
 
@@ -625,16 +637,16 @@ export const configUtils = {
     backup: ConfigBackup,
     azureStorage: BaseStorageType<SecureAzureConfig | null>,
     preferencesStorage: BaseStorageType<UserPreferences>,
-    settingsStorage: BaseStorageType<ExtensionSettings>
+    settingsStorage: BaseStorageType<ExtensionSettings>,
   ): Promise<void> {
     if (backup.azureConfig) {
       await azureStorage.set(backup.azureConfig);
     }
-    
+
     if (backup.userPreferences) {
       await preferencesStorage.set(backup.userPreferences);
     }
-    
+
     if (backup.extensionSettings) {
       await settingsStorage.set(backup.extensionSettings);
     }

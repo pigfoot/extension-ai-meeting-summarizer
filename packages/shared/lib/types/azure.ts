@@ -7,31 +7,58 @@
 /**
  * Azure Speech Service regions
  */
-export type AzureRegion = 
-  | 'eastus' | 'eastus2' | 'southcentralus' | 'westus2' | 'westus3'
-  | 'australiaeast' | 'southeastasia' | 'northeurope' | 'swedencentral'
-  | 'uksouth' | 'westeurope' | 'centralus' | 'southafricanorth'
-  | 'centralindia' | 'eastasia' | 'japaneast' | 'koreacentral';
+export type AzureRegion =
+  | 'eastus'
+  | 'eastus2'
+  | 'southcentralus'
+  | 'westus2'
+  | 'westus3'
+  | 'australiaeast'
+  | 'southeastasia'
+  | 'northeurope'
+  | 'swedencentral'
+  | 'uksouth'
+  | 'westeurope'
+  | 'centralus'
+  | 'southafricanorth'
+  | 'centralindia'
+  | 'eastasia'
+  | 'japaneast'
+  | 'koreacentral';
 
 /**
  * Supported audio formats for Azure Speech Service
  */
-export type AudioFormat = 
-  | 'wav' | 'mp3' | 'ogg' | 'webm' | 'flac' | 'aac' | 'm4a';
+export type AudioFormat = 'wav' | 'mp3' | 'ogg' | 'webm' | 'flac' | 'aac' | 'm4a';
 
 /**
  * Audio encoding types supported by Azure Speech
  */
-export type AudioEncoding = 
-  | 'PCM' | 'ALAW' | 'MULAW' | 'DVI_ADPCM' | 'GSM610' | 'G722_ADPCM'
-  | 'MPEG_Layer3' | 'OGG_OPUS' | 'WEBM_OPUS' | 'AMR_WB' | 'FLAC' | 'AAC';
+export type AudioEncoding =
+  | 'PCM'
+  | 'ALAW'
+  | 'MULAW'
+  | 'DVI_ADPCM'
+  | 'GSM610'
+  | 'G722_ADPCM'
+  | 'MPEG_Layer3'
+  | 'OGG_OPUS'
+  | 'WEBM_OPUS'
+  | 'AMR_WB'
+  | 'FLAC'
+  | 'AAC';
 
 /**
  * Recognition result status from Azure Speech Service
  */
-export type RecognitionStatus = 
-  | 'Success' | 'NoMatch' | 'InitialSilenceTimeout' | 'BabbleTimeout'
-  | 'Error' | 'EndOfDictation' | 'Canceled';
+export type RecognitionStatus =
+  | 'Success'
+  | 'NoMatch'
+  | 'InitialSilenceTimeout'
+  | 'BabbleTimeout'
+  | 'Error'
+  | 'EndOfDictation'
+  | 'Canceled';
 
 /**
  * Speech recognition modes
@@ -341,8 +368,7 @@ export interface BatchTranscriptionConfig {
 /**
  * Batch job status types
  */
-export type BatchJobStatus = 
-  | 'NotStarted' | 'Running' | 'Succeeded' | 'Failed' | 'Cancelled';
+export type BatchJobStatus = 'NotStarted' | 'Running' | 'Succeeded' | 'Failed' | 'Cancelled';
 
 /**
  * Azure Speech Service quota and usage information

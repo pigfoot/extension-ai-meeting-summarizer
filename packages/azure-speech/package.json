@@ -1,7 +1,7 @@
 {
-  "name": "@extension/shared",
-  "version": "0.5.0",
-  "description": "chrome extension - shared code",
+  "name": "@extension/azure-speech",
+  "version": "0.1.0",
+  "description": "chrome extension - Azure Speech SDK integration",
   "type": "module",
   "private": true,
   "sideEffects": false,
@@ -10,12 +10,6 @@
   ],
   "types": "index.mts",
   "main": "dist/index.mjs",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
-    }
-  },
   "scripts": {
     "clean:bundle": "rimraf dist",
     "clean:node_modules": "pnpx rimraf node_modules",
@@ -29,11 +23,12 @@
     "postinstall": "pnpm ready"
   },
   "dependencies": {
-    "react-error-boundary": "^6.0.0"
+    "microsoft-cognitiveservices-speech-sdk": "^1.41.0"
   },
   "devDependencies": {
-    "@extension/storage": "workspace:*",
+    "@extension/shared": "workspace:*",
+    "@extension/storage": "workspace:*", 
     "@extension/tsconfig": "workspace:*",
-    "type-fest": "^4.41.0"
+    "@types/node": "^22.8.0"
   }
 }

@@ -5,15 +5,25 @@
  * with enhanced support for meeting-specific components and modules.
  */
 
+// Type declarations for HMR
+declare global {
+  interface NodeModule {
+    hot?: {
+      accept(dependency?: string | string[], callback?: () => void): void;
+      dispose(callback: () => void): void;
+    };
+  }
+}
+
 // Export existing HMR functionality
-export * from './plugins/index.js';
-export * from './initializers/init-client.js';
-export * from './initializers/init-reload-server.js';
-export * from './injections/refresh.js';
-export * from './injections/reload.js';
-export * from './interpreter/index.js';
-export * from './consts.js';
-export * from './types.js';
+export * from './plugins';
+export * from './initializers/init-client';
+export * from './initializers/init-reload-server';
+export * from './injections/refresh';
+export * from './injections/reload';
+export * from './interpreter';
+export * from './consts';
+export * from './types';
 
 /**
  * Meeting-specific HMR configuration and utilities
@@ -243,7 +253,7 @@ export const HMRDevServer = {
    * Check if HMR is available
    */
   isHMRAvailable(): boolean {
-    return typeof module !== 'undefined' && module.hot !== undefined;
+    return typeof module !== 'undefined' && (module as NodeModule).hot !== undefined;
   },
   
   /**
@@ -267,11 +277,12 @@ export const HMRDevServer = {
     MeetingHMRUtils.setupMeetingHMRListeners();
     
     // Accept HMR updates for this module
-    if (module.hot) {
-      module.hot.accept();
+    const moduleHot = (module as NodeModule).hot;
+    if (moduleHot) {
+      moduleHot.accept();
       
       // Handle disposal
-      module.hot.dispose(() => {
+      moduleHot.dispose(() => {
         MeetingHMRUtils.cleanupMeetingHMRListeners();
       });
     }
@@ -281,7 +292,7 @@ export const HMRDevServer = {
    * Create HMR-enabled module wrapper
    */
   createHMRModule<T>(moduleFactory: () => T, moduleId?: string): T {
-    const module = moduleFactory();
+    const moduleResult = moduleFactory();
     
     if (this.isHMRAvailable() && this.isDevelopment()) {
       const id = moduleId || 'anonymous-module';
@@ -289,12 +300,13 @@ export const HMRDevServer = {
       
       // Setup HMR callback
       const callback = MeetingHMRUtils.createMeetingHMRCallback(id);
-      if (callback && module.hot) {
-        module.hot.accept(callback);
+      const moduleHot = (module as NodeModule).hot;
+      if (moduleHot) {
+        moduleHot.accept(undefined, callback);
       }
     }
     
-    return module;
+    return moduleResult;
   },
 } as const;
 

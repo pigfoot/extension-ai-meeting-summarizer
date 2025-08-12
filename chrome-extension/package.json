@@ -11,6 +11,9 @@
     "clean": "pnpm clean:turbo && pnpm clean:node_modules",
     "ready": "tsc -b pre-build.tsconfig.json",
     "build": "vite build",
+    "build:chrome": "cross-env TARGET_BROWSER=chrome vite build",
+    "build:firefox": "cross-env TARGET_BROWSER=firefox vite build",
+    "build:edge": "cross-env TARGET_BROWSER=edge vite build",
     "dev": "vite build --mode development",
     "test": "vitest run",
     "lint": "eslint .",
@@ -30,6 +33,7 @@
     "@extension/tsconfig": "workspace:*",
     "@extension/vite-config": "workspace:*",
     "@laynezh/vite-plugin-lib-assets": "^1.1.0",
+    "cross-env": "^7.0.3",
     "magic-string": "^0.30.17",
     "ts-loader": "^9.5.2"
   }

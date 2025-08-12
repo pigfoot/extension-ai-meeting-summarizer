@@ -7,18 +7,107 @@
 import { createStorage } from '../base/base.js';
 import { StorageEnum } from '../base/enums.js';
 import type { BaseStorageType, StorageConfigType } from '../base/types.js';
-import type {
-  MeetingRecord,
-  MeetingSearchCriteria,
-  MeetingSearchResults,
-  MeetingAnalytics,
-  CachedTranscription,
-} from '@extension/shared/lib/types';
+// Use generic types to avoid circular dependency with shared package
+interface MeetingRecord {
+  id: string;
+  title: string;
+  description?: string;
+  url: string;
+  startTime: string | Date;
+  endTime?: string | Date;
+  duration?: number;
+  participants: string[];
+  organizer?: string;
+  platform: 'teams' | 'sharepoint' | 'unknown';
+  status: 'scheduled' | 'live' | 'ended' | 'cancelled';
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  transcriptionText?: string;
+  transcriptionStatus?: 'pending' | 'processing' | 'completed' | 'failed';
+  transcriptionId?: string;
+  metadata?: Record<string, unknown>;
+  tags?: string[];
+  isArchived?: boolean;
+  recordingUrl?: string;
+  summary?: string;
+  actionItems?: Array<{
+    text: string;
+    assignee?: string;
+    completed: boolean;
+  }>;
+}
+
+interface MeetingSearchCriteria {
+  query?: string;
+  status?: string[];
+  source?: string[];
+  startDate?: string;
+  endDate?: string;
+  sortBy?: 'startTime' | 'title' | 'createdAt' | 'updatedAt';
+  sortOrder?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+}
+
+interface MeetingSearchResults {
+  meetings: MeetingRecord[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
+interface MeetingAnalytics {
+  totalMeetings: number;
+  byStatus: Record<string, number>;
+  bySource: Record<string, number>;
+  averageDuration: number;
+  totalRecordedTime: number;
+  transcribedMeetings: number;
+  summarizedMeetings: number;
+  totalActionItems: number;
+  completedActionItems: number;
+  topParticipants: string[];
+}
+interface CachedTranscription {
+  transcriptionId: string;
+  transcriptionText: string;
+  meetingId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  confidence?: number;
+  language?: string;
+  speakers?: Array<{
+    id: string;
+    name?: string;
+    segments: Array<{
+      text: string;
+      start: number;
+      end: number;
+      confidence: number;
+    }>;
+  }>;
+  segments?: Array<{
+    text: string;
+    start: number;
+    end: number;
+    speaker?: string;
+    confidence: number;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+  audioUrl?: string;
+  duration?: number;
+  metadata?: Record<string, unknown>;
+  cachedAt: string;
+  expiresAt: string;
+  checksum: string;
+}
 
 /**
  * Meeting validation error types
  */
-export type MeetingValidationError = 
+export type MeetingValidationError =
   | 'INVALID_ID'
   | 'MISSING_TITLE'
   | 'INVALID_DATES'
@@ -105,16 +194,21 @@ export const meetingRecordSerialization = {
           id,
           {
             ...meeting,
-            startTime: typeof meeting.startTime === 'string' ? meeting.startTime : new Date(meeting.startTime).toISOString(),
-            endTime: meeting.endTime 
-              ? (typeof meeting.endTime === 'string' ? meeting.endTime : new Date(meeting.endTime).toISOString())
+            startTime:
+              typeof meeting.startTime === 'string' ? meeting.startTime : new Date(meeting.startTime).toISOString(),
+            endTime: meeting.endTime
+              ? typeof meeting.endTime === 'string'
+                ? meeting.endTime
+                : new Date(meeting.endTime).toISOString()
               : undefined,
-            createdAt: typeof meeting.createdAt === 'string' ? meeting.createdAt : new Date(meeting.createdAt).toISOString(),
-            updatedAt: typeof meeting.updatedAt === 'string' ? meeting.updatedAt : new Date(meeting.updatedAt).toISOString(),
+            createdAt:
+              typeof meeting.createdAt === 'string' ? meeting.createdAt : new Date(meeting.createdAt).toISOString(),
+            updatedAt:
+              typeof meeting.updatedAt === 'string' ? meeting.updatedAt : new Date(meeting.updatedAt).toISOString(),
           },
-        ])
+        ]),
       );
-      
+
       return JSON.stringify(serializedMeetings);
     } catch (error) {
       console.error('Failed to serialize meeting records:', error);
@@ -130,9 +224,9 @@ export const meetingRecordSerialization = {
       if (!text || text.trim() === '') {
         return {};
       }
-      
+
       const parsed = JSON.parse(text);
-      
+
       // Validate and convert dates back to proper format
       return Object.fromEntries(
         Object.entries(parsed).map(([id, meeting]) => {
@@ -145,9 +239,9 @@ export const meetingRecordSerialization = {
               endTime: typedMeeting.endTime ? new Date(typedMeeting.endTime).toISOString() : undefined,
               createdAt: new Date(typedMeeting.createdAt).toISOString(),
               updatedAt: new Date(typedMeeting.updatedAt).toISOString(),
-            },
+            } as MeetingRecord,
           ];
-        })
+        }),
       );
     } catch (error) {
       console.error('Failed to deserialize meeting records:', error);
@@ -170,16 +264,18 @@ export const transcriptionCacheSerialization = {
           key,
           {
             ...transcription,
-            cachedAt: typeof transcription.cachedAt === 'string' 
-              ? transcription.cachedAt 
-              : new Date(transcription.cachedAt).toISOString(),
-            expiresAt: typeof transcription.expiresAt === 'string'
-              ? transcription.expiresAt
-              : new Date(transcription.expiresAt).toISOString(),
+            cachedAt:
+              typeof transcription.cachedAt === 'string'
+                ? transcription.cachedAt
+                : new Date(transcription.cachedAt).toISOString(),
+            expiresAt:
+              typeof transcription.expiresAt === 'string'
+                ? transcription.expiresAt
+                : new Date(transcription.expiresAt).toISOString(),
           },
-        ])
+        ]),
       );
-      
+
       return JSON.stringify(serializedCache);
     } catch (error) {
       console.error('Failed to serialize transcription cache:', error);
@@ -195,15 +291,18 @@ export const transcriptionCacheSerialization = {
       if (!text || text.trim() === '') {
         return {};
       }
-      
+
       const parsed = JSON.parse(text);
       const now = new Date();
-      
+
       // Filter out expired cache entries during deserialization
       return Object.fromEntries(
         Object.entries(parsed)
           .map(([key, transcription]) => {
-            const typedTranscription = transcription as CachedTranscription;
+            const typedTranscription = transcription as CachedTranscription & {
+              cachedAt: string;
+              expiresAt: string;
+            };
             return [
               key,
               {
@@ -213,7 +312,10 @@ export const transcriptionCacheSerialization = {
               },
             ];
           })
-          .filter(([_, transcription]) => new Date(transcription.expiresAt) > now)
+          .filter(([, transcription]) => {
+            const typed = transcription as CachedTranscription;
+            return new Date(typed.expiresAt) > now;
+          }),
       );
     } catch (error) {
       console.error('Failed to deserialize transcription cache:', error);
@@ -245,7 +347,7 @@ export const validateMeetingRecord = (meeting: Partial<MeetingRecord>): MeetingV
     if (isNaN(startTime.getTime())) {
       errors.push('INVALID_DATES');
     }
-    
+
     if (meeting.endTime) {
       const endTime = new Date(meeting.endTime);
       if (isNaN(endTime.getTime()) || endTime <= startTime) {
@@ -254,7 +356,10 @@ export const validateMeetingRecord = (meeting: Partial<MeetingRecord>): MeetingV
     }
   }
 
-  if (!meeting.status || !['scheduled', 'in-progress', 'completed', 'cancelled', 'processing'].includes(meeting.status)) {
+  if (
+    !meeting.status ||
+    !['scheduled', 'in-progress', 'completed', 'cancelled', 'processing'].includes(meeting.status)
+  ) {
     errors.push('INVALID_STATUS');
   }
 
@@ -267,15 +372,15 @@ export const validateMeetingRecord = (meeting: Partial<MeetingRecord>): MeetingV
   }
 
   // Transcription validation if present
-  if (meeting.transcription) {
-    if (!meeting.transcription.id || !meeting.transcription.fullText) {
+  if (meeting.transcriptionText) {
+    if (typeof meeting.transcriptionText !== 'string' || meeting.transcriptionText.trim() === '') {
       errors.push('INVALID_TRANSCRIPTION');
     }
   }
 
   // Summary validation if present
   if (meeting.summary) {
-    if (!meeting.summary.id || !meeting.summary.overview) {
+    if (typeof meeting.summary !== 'string' || meeting.summary.trim() === '') {
       errors.push('INVALID_SUMMARY');
     }
   }
@@ -285,8 +390,8 @@ export const validateMeetingRecord = (meeting: Partial<MeetingRecord>): MeetingV
     if (!Array.isArray(meeting.actionItems)) {
       errors.push('INVALID_ACTION_ITEMS');
     } else {
-      meeting.actionItems.forEach((item, index) => {
-        if (!item.id || !item.title) {
+      meeting.actionItems.forEach(item => {
+        if (!item.text || typeof item.text !== 'string') {
           errors.push('INVALID_ACTION_ITEMS');
         }
       });
@@ -294,7 +399,7 @@ export const validateMeetingRecord = (meeting: Partial<MeetingRecord>): MeetingV
   }
 
   // Performance warnings
-  if (meeting.transcription && meeting.transcription.fullText.length > 100000) {
+  if (meeting.transcriptionText && meeting.transcriptionText.length > 100000) {
     warnings.push('Large transcription may impact performance');
   }
 
@@ -315,10 +420,10 @@ export const validateMeetingRecord = (meeting: Partial<MeetingRecord>): MeetingV
  */
 export const validateCachedTranscription = (cache: Partial<CachedTranscription>): boolean => {
   return !!(
-    cache.meetingId &&
-    cache.transcriptionText &&
-    cache.cachedAt &&
-    cache.expiresAt &&
+    cache.meetingId && 
+    cache.transcriptionText && 
+    cache.cachedAt && 
+    cache.expiresAt && 
     cache.checksum
   );
 };
@@ -345,7 +450,9 @@ export const createMeetingStorage = (config?: MeetingStorageConfig): BaseStorage
 /**
  * Creates transcription cache storage with LRU configuration
  */
-export const createTranscriptionCacheStorage = (config?: TranscriptionCacheConfig): BaseStorageType<Record<string, CachedTranscription>> => {
+export const createTranscriptionCacheStorage = (
+  config?: TranscriptionCacheConfig,
+): BaseStorageType<Record<string, CachedTranscription>> => {
   const defaultConfig: TranscriptionCacheConfig = {
     storageEnum: StorageEnum.Local,
     liveUpdate: false,
@@ -413,57 +520,50 @@ export const meetingStorageUtils = {
    */
   async searchMeetings(
     storage: BaseStorageType<Record<string, MeetingRecord>>,
-    criteria: MeetingSearchCriteria
+    criteria: MeetingSearchCriteria,
   ): Promise<MeetingSearchResults> {
     const allMeetings = await storage.get();
     const meetings = Object.values(allMeetings);
-    
+
     let filteredMeetings = meetings;
 
     // Apply filters
     if (criteria.query) {
       const query = criteria.query.toLowerCase();
-      filteredMeetings = filteredMeetings.filter(meeting =>
-        meeting.title.toLowerCase().includes(query) ||
-        meeting.description?.toLowerCase().includes(query) ||
-        meeting.transcription?.fullText.toLowerCase().includes(query)
+      filteredMeetings = filteredMeetings.filter(
+        meeting =>
+          meeting.title.toLowerCase().includes(query) ||
+          meeting.description?.toLowerCase().includes(query) ||
+          meeting.transcriptionText?.toLowerCase().includes(query),
       );
     }
 
     if (criteria.status && criteria.status.length > 0) {
-      filteredMeetings = filteredMeetings.filter(meeting =>
-        criteria.status!.includes(meeting.status)
-      );
+      filteredMeetings = filteredMeetings.filter(meeting => criteria.status!.includes(meeting.status));
     }
 
     if (criteria.source && criteria.source.length > 0) {
-      filteredMeetings = filteredMeetings.filter(meeting =>
-        criteria.source!.includes(meeting.source)
-      );
+      filteredMeetings = filteredMeetings.filter(meeting => criteria.source!.includes(meeting.platform));
     }
 
     if (criteria.startDate) {
       const startDate = new Date(criteria.startDate);
-      filteredMeetings = filteredMeetings.filter(meeting =>
-        new Date(meeting.startTime) >= startDate
-      );
+      filteredMeetings = filteredMeetings.filter(meeting => new Date(meeting.startTime) >= startDate);
     }
 
     if (criteria.endDate) {
       const endDate = new Date(criteria.endDate);
-      filteredMeetings = filteredMeetings.filter(meeting =>
-        new Date(meeting.startTime) <= endDate
-      );
+      filteredMeetings = filteredMeetings.filter(meeting => new Date(meeting.startTime) <= endDate);
     }
 
     // Apply sorting
     const sortBy = criteria.sortBy || 'startTime';
     const sortOrder = criteria.sortOrder || 'desc';
-    
+
     filteredMeetings.sort((a, b) => {
       let aValue: string | number = '';
       let bValue: string | number = '';
-      
+
       switch (sortBy) {
         case 'startTime':
           aValue = new Date(a.startTime).getTime();
@@ -482,7 +582,7 @@ export const meetingStorageUtils = {
           bValue = new Date(b.updatedAt).getTime();
           break;
       }
-      
+
       if (sortOrder === 'asc') {
         return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       } else {
@@ -495,9 +595,9 @@ export const meetingStorageUtils = {
     const limit = criteria.limit || 20;
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    
+
     const paginatedMeetings = filteredMeetings.slice(startIndex, endIndex);
-    
+
     return {
       meetings: paginatedMeetings,
       total: filteredMeetings.length,
@@ -511,12 +611,10 @@ export const meetingStorageUtils = {
   /**
    * Calculate storage statistics
    */
-  async calculateStorageStats(
-    storage: BaseStorageType<Record<string, MeetingRecord>>
-  ): Promise<MeetingStorageStats> {
+  async calculateStorageStats(storage: BaseStorageType<Record<string, MeetingRecord>>): Promise<MeetingStorageStats> {
     const allMeetings = await storage.get();
     const meetings = Object.values(allMeetings);
-    
+
     if (meetings.length === 0) {
       return {
         totalMeetings: 0,
@@ -529,14 +627,24 @@ export const meetingStorageUtils = {
 
     const serialized = meetingRecordSerialization.serialize(allMeetings);
     const totalStorageSize = new Blob([serialized]).size;
-    
+
     const storageByStatus: Record<string, number> = {};
-    let oldestMeeting = meetings[0].startTime;
-    let newestMeeting = meetings[0].startTime;
-    
+    const firstMeeting = meetings[0];
+    if (!firstMeeting) {
+      return {
+        totalMeetings: 0,
+        totalStorageSize: 0,
+        storageByStatus: {},
+        averageMeetingSize: 0,
+        storageEfficiency: 1,
+      };
+    }
+    let oldestMeeting = firstMeeting.startTime;
+    let newestMeeting = firstMeeting.startTime;
+
     meetings.forEach(meeting => {
       storageByStatus[meeting.status] = (storageByStatus[meeting.status] || 0) + 1;
-      
+
       if (meeting.startTime < oldestMeeting) {
         oldestMeeting = meeting.startTime;
       }
@@ -549,8 +657,8 @@ export const meetingStorageUtils = {
       totalMeetings: meetings.length,
       totalStorageSize,
       storageByStatus,
-      oldestMeeting,
-      newestMeeting,
+      oldestMeeting: typeof oldestMeeting === 'string' ? oldestMeeting : oldestMeeting.toISOString(),
+      newestMeeting: typeof newestMeeting === 'string' ? newestMeeting : newestMeeting.toISOString(),
       averageMeetingSize: totalStorageSize / meetings.length,
       storageEfficiency: 0.85, // Estimated compression efficiency
     };
@@ -561,15 +669,15 @@ export const meetingStorageUtils = {
    */
   async cleanupOldMeetings(
     storage: BaseStorageType<Record<string, MeetingRecord>>,
-    retentionDays: number = 90
+    retentionDays: number = 90,
   ): Promise<number> {
     const allMeetings = await storage.get();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-    
+
     const toKeep: Record<string, MeetingRecord> = {};
     let removedCount = 0;
-    
+
     Object.entries(allMeetings).forEach(([id, meeting]) => {
       if (new Date(meeting.startTime) >= cutoffDate) {
         toKeep[id] = meeting;
@@ -577,7 +685,7 @@ export const meetingStorageUtils = {
         removedCount++;
       }
     });
-    
+
     await storage.set(toKeep);
     return removedCount;
   },

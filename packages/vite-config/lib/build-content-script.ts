@@ -40,7 +40,7 @@ const configsBuilder = ({ matchesDir, srcDir, rootDir, contentName }: BuilderPro
   Object.entries(getContentScriptEntries(matchesDir)).map(([name, entry]) => ({
     name,
     config: withPageConfig({
-      mode: IS_DEV ? 'development' : undefined,
+      mode: IS_DEV ? 'development' : 'production',
       resolve: {
         alias: {
           '@src': srcDir,

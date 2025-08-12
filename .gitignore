@@ -23,3 +23,7 @@ tsconfig.tsbuildinfo
 
 # compiled
 **/tailwind-output.css
+
+# claude code
+.claude/settings.local.json
+.claude/gpg-session
