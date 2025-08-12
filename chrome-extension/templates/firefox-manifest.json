@@ -1,0 +1,124 @@
+{
+  "manifest_version": 2,
+  "name": "__MSG_extensionName__",
+  "version": "1.0.0",
+  "description": "__MSG_extensionDescription__",
+  "default_locale": "en",
+  
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "meeting-summarizer@extension.local",
+      "strict_min_version": "109.0"
+    }
+  },
+  
+  "permissions": [
+    "storage",
+    "scripting",
+    "tabs",
+    "notifications",
+    "menus",
+    "webNavigation",
+    "activeTab",
+    "https://*.sharepoint.com/*",
+    "https://*.office.com/*",
+    "https://*.teams.microsoft.com/*",
+    "https://*.microsoftonline.com/*"
+  ],
+  
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  
+  "browser_action": {
+    "default_popup": "popup/index.html",
+    "default_title": "__MSG_extensionName__",
+    "default_icon": {
+      "16": "icon-34.png",
+      "32": "icon-34.png",
+      "48": "icon-128.png",
+      "128": "icon-128.png"
+    }
+  },
+  
+  "icons": {
+    "16": "icon-34.png",
+    "32": "icon-34.png",
+    "48": "icon-128.png",
+    "128": "icon-128.png"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.sharepoint.com/*",
+        "https://*.office.com/*",
+        "https://*.teams.microsoft.com/*",
+        "https://*.microsoftonline.com/*"
+      ],
+      "js": ["content/all.iife.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  
+  "web_accessible_resources": [
+    "*.js",
+    "*.css",
+    "*.svg",
+    "*.png",
+    "*.json"
+  ],
+  
+  "options_ui": {
+    "page": "options/index.html",
+    "browser_style": true
+  },
+  
+  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self';",
+  
+  "commands": {
+    "toggle-transcription": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+T",
+        "mac": "Command+Shift+T"
+      },
+      "description": "__MSG_toggleTranscription__"
+    },
+    "save-meeting": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+M",
+        "mac": "Command+Shift+M"
+      },
+      "description": "__MSG_saveMeeting__"
+    },
+    "quick-summary": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Q",
+        "mac": "Command+Shift+Q"
+      },
+      "description": "__MSG_quickSummary__"
+    }
+  },
+  
+  "omnibox": {
+    "keyword": "meeting"
+  },
+  
+  "homepage_url": "https://github.com/example/meeting-summarizer",
+  
+  "developer": {
+    "name": "Meeting Summarizer Team",
+    "url": "https://github.com/example/meeting-summarizer"
+  },
+  
+  "applications": {
+    "gecko": {
+      "id": "meeting-summarizer@extension.local",
+      "strict_min_version": "109.0",
+      "update_url": "https://raw.githubusercontent.com/example/meeting-summarizer/main/updates.json"
+    }
+  }
+}

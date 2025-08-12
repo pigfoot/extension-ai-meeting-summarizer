@@ -1,0 +1,101 @@
+/**
+ * Shared types barrel export for the Meeting Summarizer Chrome Extension
+ * Provides centralized access to all type definitions across the extension.
+ */
+
+// Meeting domain types
+export type {
+  MeetingStatus,
+  MeetingSource,
+  TranscriptionConfidence,
+  ActionItemPriority,
+  ActionItemStatus,
+  MeetingRecord,
+  MeetingParticipant,
+  MeetingMetadata,
+  TranscriptionResult,
+  TranscriptionSegment,
+  TranscriptionWord,
+  MeetingSummary,
+  ActionItem,
+  MeetingSearchCriteria,
+  MeetingSearchResults,
+  MeetingAnalytics,
+} from './meeting.js';
+
+// Azure Speech API types
+export type {
+  AzureRegion,
+  AudioFormat,
+  AudioEncoding,
+  RecognitionStatus,
+  RecognitionMode,
+  ProfanityOption,
+  DiarizationStatus,
+  AzureSpeechConfig,
+  AudioConfig,
+  SpeechClient,
+  SpeechClientStatus,
+  SpeechRecognitionResult,
+  RecognitionResult,
+  WordResult,
+  AlternativeResult,
+  SentimentResult,
+  SpeakerDiarizationResult,
+  SpeakerSegment,
+  ErrorDetails,
+  BatchTranscriptionJob,
+  BatchTranscriptionConfig,
+  BatchJobStatus,
+  SpeechServiceQuota,
+  CreateTranscriptionJobRequest,
+  TranscriptionSession,
+  SpeechServiceMetrics,
+} from './azure.js';
+
+// Chrome Extension specific types
+export type {
+  ExtensionMessageType,
+  ServiceWorkerStatus,
+  NotificationType,
+  StorageArea,
+  ChromeStorageKeys,
+  ExtensionStorageSchema,
+  UserPreferences,
+  PrivacySettings,
+  KeyboardShortcuts,
+  ExtensionSettings,
+  FeatureFlags,
+  CachedTranscription,
+  AuthTokens,
+  AnalyticsData,
+  UsageStatistics,
+  ErrorTrackingData,
+  ErrorReport,
+  PerformanceMetrics,
+  MemoryUsageStats,
+  StorageUsageStats,
+  NetworkMetrics,
+  LoadTimeMetrics,
+  FeatureUsageStats,
+  FeatureUsage,
+  ExtensionMessage,
+  MessageSender,
+  ExtensionNotification,
+  NotificationAction,
+  ContextMenuItem,
+  ExtensionTab,
+  ServiceWorkerState,
+  ExtensionPermissions,
+  StorageResult,
+} from './extension.js';
+
+// Re-export existing shared types for backward compatibility
+export type {
+  ColorType,
+  ExcludeValuesFromBaseArrayType,
+  ManifestType,
+} from '../utils/types.js';
+
+// Re-export utility types from type-fest
+export type * from 'type-fest';

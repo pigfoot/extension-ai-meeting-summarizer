@@ -1,0 +1,69 @@
+{
+  "name": "@extension/meeting-core",
+  "version": "0.5.0",
+  "description": "Core meeting functionality for Meeting Summarizer Chrome Extension",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "ready": "tsx lib/index.ts",
+    "dev": "tsx watch lib/index.ts",
+    "build": "tsc --build",
+    "clean": "rimraf dist .turbo",
+    "lint": "eslint . --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "type-check": "tsc --noEmit",
+    "test": "echo \"No tests yet\"",
+    "test:unit": "echo \"No unit tests yet\"",
+    "test:integration": "echo \"No integration tests yet\""
+  },
+  "dependencies": {
+    "@extension/shared": "workspace:*",
+    "@extension/storage": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.17.1",
+    "eslint": "^9.33.0",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  },
+  "keywords": [
+    "chrome-extension",
+    "meeting",
+    "transcription",
+    "summarization",
+    "azure-speech",
+    "sharepoint"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/example/meeting-summarizer.git",
+    "directory": "packages/meeting-core"
+  },
+  "homepage": "https://github.com/example/meeting-summarizer#readme",
+  "bugs": {
+    "url": "https://github.com/example/meeting-summarizer/issues"
+  },
+  "author": {
+    "name": "Meeting Summarizer Team",
+    "email": "team@example.com"
+  },
+  "engines": {
+    "node": ">=22.15.1"
+  }
+}

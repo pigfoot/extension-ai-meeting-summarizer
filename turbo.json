@@ -1,41 +1,312 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalEnv": ["CEB_*", "CLI_CEB_*"],
-  "globalDependencies": [".env"],
+  "globalEnv": [
+    "CEB_*", 
+    "CLI_CEB_*",
+    "TARGET_BROWSER",
+    "AZURE_SPEECH_KEY",
+    "AZURE_SPEECH_REGION",
+    "NODE_ENV",
+    "MEETING_SUMMARIZER_*"
+  ],
+  "globalDependencies": [
+    ".env",
+    ".env.local",
+    "chrome-extension/manifest.ts",
+    "packages/shared/lib/types/**",
+    "packages/storage/lib/schemas/**"
+  ],
   "concurrency": "12",
   "tasks": {
     "ready": {
       "dependsOn": ["^ready"],
       "outputs": ["../../dist/**", "dist/**"],
-      "cache": false
+      "cache": true,
+      "inputs": [
+        "src/**",
+        "lib/**", 
+        "*.ts", 
+        "*.js", 
+        "*.json",
+        "!**/*.test.*",
+        "!**/*.spec.*"
+      ]
     },
     "dev": {
       "dependsOn": ["ready"],
       "outputs": ["../../dist/**", "dist/**"],
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": ["TARGET_BROWSER", "NODE_ENV"]
     },
     "build": {
       "dependsOn": ["ready", "^build"],
       "outputs": ["../../dist/**", "dist/**"],
+      "cache": true,
+      "inputs": [
+        "src/**",
+        "lib/**", 
+        "*.ts", 
+        "*.js", 
+        "*.json",
+        "!**/*.test.*",
+        "!**/*.spec.*"
+      ],
+      "env": ["TARGET_BROWSER", "NODE_ENV"]
+    },
+    "build:chrome": {
+      "dependsOn": ["ready", "^build"],
+      "outputs": ["../../dist/**", "dist/**"],
+      "cache": true,
+      "env": ["NODE_ENV"],
+      "passThroughEnv": ["TARGET_BROWSER=chrome"]
+    },
+    "build:firefox": {
+      "dependsOn": ["ready", "^build"],
+      "outputs": ["../../dist/**", "dist/**"],
+      "cache": true,
+      "env": ["NODE_ENV"],
+      "passThroughEnv": ["TARGET_BROWSER=firefox"]
+    },
+    "build:edge": {
+      "dependsOn": ["ready", "^build"],
+      "outputs": ["../../dist/**", "dist/**"],
+      "cache": true,
+      "env": ["NODE_ENV"],
+      "passThroughEnv": ["TARGET_BROWSER=edge"]
+    },
+    "build:all-browsers": {
+      "dependsOn": ["build:chrome", "build:firefox", "build:edge"],
       "cache": false
+    },
+    "meeting:dev": {
+      "dependsOn": ["ready"],
+      "outputs": ["dist/**"],
+      "cache": false,
+      "persistent": true
+    },
+    "meeting:build": {
+      "dependsOn": ["ready", "^build"],
+      "outputs": ["dist/**"],
+      "cache": true,
+      "inputs": [
+        "src/**",
+        "lib/**",
+        "packages/shared/lib/types/**",
+        "packages/storage/lib/schemas/**"
+      ]
+    },
+    "meeting:test": {
+      "dependsOn": ["^build"],
+      "cache": true,
+      "inputs": [
+        "src/**",
+        "lib/**",
+        "**/*.test.*",
+        "**/*.spec.*"
+      ],
+      "outputs": ["coverage/**"]
+    },
+    "storage:build": {
+      "dependsOn": ["^ready"],
+      "outputs": ["dist/**"],
+      "cache": true,
+      "inputs": [
+        "lib/**",
+        "*.ts",
+        "packages/shared/lib/types/**"
+      ]
+    },
+    "storage:test": {
+      "dependsOn": ["storage:build"],
+      "cache": true,
+      "inputs": [
+        "lib/**",
+        "**/*.test.*",
+        "**/*.spec.*"
+      ],
+      "outputs": ["coverage/**"]
+    },
+    "types:build": {
+      "dependsOn": [],
+      "outputs": ["dist/**"],
+      "cache": true,
+      "inputs": [
+        "lib/types/**",
+        "*.ts"
+      ]
+    },
+    "types:validate": {
+      "dependsOn": ["types:build"],
+      "cache": true,
+      "inputs": ["lib/types/**"]
+    },
+    "manifest:generate": {
+      "dependsOn": ["types:build"],
+      "outputs": ["dist/manifest*.json"],
+      "cache": true,
+      "inputs": [
+        "chrome-extension/manifest.ts",
+        "chrome-extension/src/types/**",
+        "chrome-extension/utils/**",
+        "chrome-extension/templates/**"
+      ],
+      "env": ["TARGET_BROWSER", "NODE_ENV"]
+    },
+    "manifest:validate": {
+      "dependsOn": ["manifest:generate"],
+      "cache": true,
+      "inputs": ["dist/manifest*.json"]
     },
     "e2e": {
-      "cache": false
+      "dependsOn": ["build"],
+      "cache": true,
+      "inputs": [
+        "tests/e2e/**",
+        "dist/**"
+      ],
+      "outputs": ["tests/e2e/results/**"],
+      "env": ["TARGET_BROWSER"]
+    },
+    "e2e:chrome": {
+      "dependsOn": ["build:chrome"],
+      "cache": true,
+      "env": ["NODE_ENV"],
+      "passThroughEnv": ["TARGET_BROWSER=chrome"]
+    },
+    "e2e:firefox": {
+      "dependsOn": ["build:firefox"],
+      "cache": true,
+      "env": ["NODE_ENV"],
+      "passThroughEnv": ["TARGET_BROWSER=firefox"]
+    },
+    "e2e:edge": {
+      "dependsOn": ["build:edge"],
+      "cache": true,
+      "env": ["NODE_ENV"],
+      "passThroughEnv": ["TARGET_BROWSER=edge"]
     },
     "type-check": {
-      "cache": false
+      "dependsOn": ["types:build"],
+      "cache": true,
+      "inputs": [
+        "src/**",
+        "lib/**",
+        "*.ts",
+        "tsconfig.json",
+        "packages/shared/lib/types/**"
+      ]
     },
     "lint": {
-      "cache": false
+      "cache": true,
+      "inputs": [
+        "src/**",
+        "lib/**",
+        "*.ts",
+        "*.js",
+        ".eslintrc*",
+        "eslint.config.*"
+      ]
     },
     "lint:fix": {
-      "cache": false
+      "cache": false,
+      "inputs": [
+        "src/**",
+        "lib/**",
+        "*.ts",
+        "*.js"
+      ]
     },
     "format": {
       "dependsOn": ["^format"],
-      "cache": false
+      "cache": true,
+      "inputs": [
+        "src/**",
+        "lib/**",
+        "*.ts",
+        "*.js",
+        "*.json",
+        "*.md",
+        ".prettierrc*",
+        "prettier.config.*"
+      ]
+    },
+    "format:check": {
+      "cache": true,
+      "inputs": [
+        "src/**",
+        "lib/**",
+        "*.ts",
+        "*.js",
+        "*.json",
+        "*.md"
+      ]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": true,
+      "inputs": [
+        "src/**",
+        "lib/**",
+        "**/*.test.*",
+        "**/*.spec.*",
+        "jest.config.*",
+        "vitest.config.*"
+      ],
+      "outputs": ["coverage/**", "test-results/**"]
+    },
+    "test:unit": {
+      "dependsOn": ["^build"],
+      "cache": true,
+      "inputs": [
+        "src/**",
+        "lib/**",
+        "**/*.test.*",
+        "**/*.spec.*"
+      ],
+      "outputs": ["coverage/**"]
+    },
+    "test:integration": {
+      "dependsOn": ["build"],
+      "cache": true,
+      "inputs": [
+        "tests/integration/**",
+        "dist/**"
+      ],
+      "outputs": ["coverage/**", "test-results/**"]
+    },
+    "test:watch": {
+      "dependsOn": ["^ready"],
+      "cache": false,
+      "persistent": true
+    },
+    "preview": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true,
+      "env": ["TARGET_BROWSER"]
+    },
+    "package": {
+      "dependsOn": ["build"],
+      "cache": true,
+      "inputs": ["dist/**"],
+      "outputs": ["packages/**/*.zip", "packages/**/*.crx"]
+    },
+    "package:chrome": {
+      "dependsOn": ["build:chrome"],
+      "cache": true,
+      "outputs": ["packages/**/chrome.zip"]
+    },
+    "package:firefox": {
+      "dependsOn": ["build:firefox"],
+      "cache": true,
+      "outputs": ["packages/**/firefox.zip"]
+    },
+    "package:edge": {
+      "dependsOn": ["build:edge"],
+      "cache": true,
+      "outputs": ["packages/**/edge.zip"]
     },
     "clean:node_modules": {
       "dependsOn": ["^clean:node_modules"],
@@ -49,8 +320,16 @@
       "dependsOn": ["^clean:bundle"],
       "cache": false
     },
+    "clean:dist": {
+      "cache": false,
+      "outputs": []
+    },
+    "clean:cache": {
+      "cache": false,
+      "outputs": []
+    },
     "clean": {
-      "dependsOn": ["^clean"],
+      "dependsOn": ["^clean", "clean:dist", "clean:cache"],
       "cache": false
     }
   }
