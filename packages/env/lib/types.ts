@@ -1,4 +1,4 @@
-import type { dynamicEnvValues } from './index.js';
+import type { dynamicEnvValues } from './index';
 
 interface ICebEnv {
   readonly CEB_EXAMPLE: string;

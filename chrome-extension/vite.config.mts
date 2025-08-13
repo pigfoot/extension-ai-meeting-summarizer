@@ -6,6 +6,7 @@ import { watchPublicPlugin, watchRebuildPlugin } from '@extension/hmr';
 import { watchOption } from '@extension/vite-config';
 import env, { IS_DEV, IS_PROD } from '@extension/env';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { nodeResolve } from '@rollup/plugin-node-resolve';
 
 const rootDir = resolve(import.meta.dirname);
 const srcDir = resolve(rootDir, 'src');
@@ -23,6 +24,10 @@ export default defineConfig({
     },
   },
   plugins: [
+    nodeResolve({
+      extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
+      preferBuiltins: false,
+    }) as PluginOption,
     libAssetsPlugin({
       outputPath: outDir,
     }) as PluginOption,

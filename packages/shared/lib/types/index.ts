@@ -21,7 +21,7 @@ export type {
   MeetingSearchCriteria,
   MeetingSearchResults,
   MeetingAnalytics,
-} from './meeting';
+} from './meeting.js';
 
 // Azure Speech API types
 export type {
@@ -51,7 +51,7 @@ export type {
   CreateTranscriptionJobRequest,
   TranscriptionSession,
   SpeechServiceMetrics,
-} from './azure';
+} from './azure.js';
 
 // Chrome Extension specific types
 export type {
@@ -88,4 +88,4 @@ export type {
   ServiceWorkerState,
   ExtensionPermissions,
   StorageResult,
-} from './extension';
+} from './extension.js';

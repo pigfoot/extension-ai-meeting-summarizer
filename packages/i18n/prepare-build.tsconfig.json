@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["lib/prepare-build.ts"]
+  "include": ["lib/prepare-build.ts", "lib/set-related-locale-import.ts", "lib/consts.ts", "lib/types.ts"]
 }

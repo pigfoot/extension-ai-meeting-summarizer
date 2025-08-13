@@ -4,7 +4,7 @@
  * for transcription results and meeting data caching.
  */
 
-import type { BaseStorageType } from '../base/types.js';
+import type { BaseStorageType } from '../base/types';
 // Use specific interface instead of generic type
 interface CachedTranscription {
   transcriptionId: string;

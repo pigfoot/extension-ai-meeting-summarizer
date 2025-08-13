@@ -3,7 +3,7 @@ import { DEFAULT_CHOICES, DELETE_CHOICE_QUESTION } from '../const.js';
 import { processSelection } from '../helpers/utils.js';
 import { pagesPath, testsPath } from '../paths.js';
 import { existsSync, readdirSync } from 'node:fs';
-import type { ChoicesType, ModuleNameType } from '../types.ts';
+import type { ChoicesType, ModuleNameType } from '../types.ts.js';
 import type { ManifestType } from '@extension/shared';
 
 export const deleteFeature = async (manifestObject: ManifestType, moduleName?: ModuleNameType) => {

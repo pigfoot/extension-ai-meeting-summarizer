@@ -4,9 +4,9 @@
  * with encryption support building upon the existing storage base architecture.
  */
 
-import { createStorage } from '../base/base.js';
-import { StorageEnum } from '../base/enums.js';
-import type { BaseStorageType } from '../base/types.js';
+import { createStorage } from '../base/base';
+import { StorageEnum } from '../base/enums';
+import type { BaseStorageType } from '../base/types';
 // Use generic types to avoid circular dependency with shared package
 interface AzureSpeechConfig {
   subscriptionKey?: string;
