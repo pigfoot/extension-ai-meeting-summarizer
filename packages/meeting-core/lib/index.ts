@@ -43,7 +43,7 @@ export type {
   ExtensionStorageSchema,
   UserPreferences,
   CachedTranscription,
-} from '@extension/shared/lib/types';
+} from '@extension/shared';
 
 // Re-export storage utilities for meeting functionality
 export {
@@ -232,7 +232,7 @@ export const MeetingUtils = {
   /**
    * Validate meeting record completeness
    */
-  isValidMeetingRecord(meeting: Partial<MeetingRecord>): meeting is MeetingRecord {
+  isValidMeetingRecord(meeting: Partial<import('@extension/shared').MeetingRecord>): meeting is import('@extension/shared').MeetingRecord {
     return !!(
       meeting.id &&
       meeting.title &&
@@ -261,10 +261,10 @@ export const MeetingUtils = {
     
     if (!match) return null;
     
-    return {
-      tenant: match[1],
-      site: match[2],
-    };
+    const result: { tenant?: string; site?: string; list?: string; item?: string; } = {};
+    if (match[1]) result.tenant = match[1];
+    if (match[2]) result.site = match[2];
+    return result;
   },
 } as const;
 

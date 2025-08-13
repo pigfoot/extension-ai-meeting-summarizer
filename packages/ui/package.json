@@ -15,7 +15,7 @@
     "clean:node_modules": "pnpx rimraf node_modules",
     "clean:turbo": "rimraf .turbo",
     "clean": "pnpm clean:bundle && pnpm clean:node_modules && pnpm clean:turbo",
-    "ready": "tsc -b && tsc-alias -p tsconfig.json",
+    "ready": "tsc -b",
     "lint": "eslint .",
     "lint:fix": "pnpm lint --fix",
     "format": "prettier . --write --ignore-path ../../.prettierignore",
@@ -31,7 +31,6 @@
   "devDependencies": {
     "@extension/tailwindcss-config": "workspace:*",
     "@extension/tsconfig": "workspace:*",
-    "react-spinners": "^0.17.0",
-    "tsc-alias": "^1.8.16"
+    "react-spinners": "^0.17.0"
   }
 }
