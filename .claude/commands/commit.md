@@ -22,12 +22,15 @@ Creates well-formatted commits with conventional commit messages and emoji.
 ```
 
 ## Process
-
-1. Check staged files, commit only staged files if any exist
-2. Analyze diff for multiple logical changes
-3. Suggest splitting if needed
-4. Create commit with emoji conventional format
-5. Husky handles pre-commit hooks automatically
+1. Check if environ vironment $GPG_PASSPHRASE is set
+2. if sign is yes, then commit with gpg-sign by cache the passphrase first: `gpg --batch --pinentry-mode loopback --passphrase-file <(echo "$GPG_PASSPHRASE") --clearsign >/dev/null 2>&1 <<< "test"`
+   otherwise commit without gpg-sign
+3. Check staged files, commit only staged files if any exist
+4. Analyze diff for multiple logical changes
+5. Suggest splitting if needed
+6. Create commit with emoji conventional format
+7. Husky handles pre-commit hooks automatically
+8. Always use --signoff
 
 ## Commit Format
 

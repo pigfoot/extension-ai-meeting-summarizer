@@ -1,0 +1,41 @@
+{
+  "name": "@extension/meeting-detector",
+  "version": "0.1.0",
+  "description": "chrome extension - meeting content detection and analysis",
+  "type": "module",
+  "private": true,
+  "sideEffects": false,
+  "files": [
+    "dist/**"
+  ],
+  "types": "index.mts",
+  "main": "dist/index.mjs",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "clean:bundle": "rimraf dist",
+    "clean:node_modules": "pnpx rimraf node_modules",
+    "clean:turbo": "rimraf .turbo",
+    "clean": "pnpm clean:bundle && pnpm clean:node_modules && pnpm clean:turbo",
+    "ready": "tsc -b",
+    "lint": "eslint .",
+    "lint:fix": "pnpm lint --fix",
+    "format": "prettier . --write --ignore-path ../../.prettierignore",
+    "type-check": "tsc --noEmit",
+    "postinstall": "pnpm ready"
+  },
+  "dependencies": {
+    "dom-parser": "^1.1.5"
+  },
+  "devDependencies": {
+    "@extension/shared": "workspace:*",
+    "@extension/storage": "workspace:*",
+    "@extension/tsconfig": "workspace:*",
+    "@types/dom-parser": "^0.1.4",
+    "type-fest": "^4.41.0"
+  }
+}

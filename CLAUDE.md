@@ -25,13 +25,6 @@ This is a Chrome Extension v3 called "Meeting Summarizer" that automatically tra
 - **Import Types**: Use `import type` only for types never used as runtime values
 - Check `.claude/steering/tech.md` for complete module import strategy and package configurations
 
-## GPG Signing for Commits
-When you need to GPG sign commits:
-1. Ask user for GPG passphrase first
-2. Cache the passphrase: `gpg --batch --pinentry-mode loopback --passphrase "USER_PASSPHRASE" --clearsign >/dev/null 2>&1 <<< "test"`
-3. Then run git commit commands normally - GPG agent will use cached passphrase
-4. Always add --signoff to commits: `git commit --signoff`
-
 ## Code Quality Standards
 - NEVER provide untested code
 - NEVER ignore build tools warnings
