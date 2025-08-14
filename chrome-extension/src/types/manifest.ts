@@ -166,7 +166,7 @@ export interface ManifestValidationResult {
 /**
  * Manifest validation error types
  */
-export type ManifestValidationError = 
+export type ManifestValidationError =
   | 'INVALID_MANIFEST_VERSION'
   | 'MISSING_REQUIRED_FIELD'
   | 'INVALID_PERMISSIONS'
@@ -310,14 +310,19 @@ export interface BrowserPermissionsConfig {
   /** Optional permissions that can be requested at runtime */
   optional: string[];
   /** Browser-specific permission mappings */
-  browserMappings: Partial<Record<TargetBrowser, {
-    /** Permissions to add for this browser */
-    add?: string[];
-    /** Permissions to remove for this browser */
-    remove?: string[];
-    /** Permission name mappings */
-    rename?: Record<string, string>;
-  }>>;
+  browserMappings: Partial<
+    Record<
+      TargetBrowser,
+      {
+        /** Permissions to add for this browser */
+        add?: string[];
+        /** Permissions to remove for this browser */
+        remove?: string[];
+        /** Permission name mappings */
+        rename?: Record<string, string>;
+      }
+    >
+  >;
   /** Host permissions configuration */
   hostPermissions: {
     /** Required host permissions */
@@ -352,12 +357,17 @@ export interface BrowserWebAccessibleResourcesConfig {
   /** Match patterns for resource access */
   matches: string[];
   /** Browser-specific resource configurations */
-  browserConfigs: Partial<Record<TargetBrowser, {
-    /** Additional resources for this browser */
-    additionalResources?: string[];
-    /** Resource restrictions */
-    restrictions?: string[];
-  }>>;
+  browserConfigs: Partial<
+    Record<
+      TargetBrowser,
+      {
+        /** Additional resources for this browser */
+        additionalResources?: string[];
+        /** Resource restrictions */
+        restrictions?: string[];
+      }
+    >
+  >;
 }
 
 /**
@@ -367,14 +377,19 @@ export interface BrowserIconConfig {
   /** Icon sizes and paths */
   icons: Record<string, string>;
   /** Browser-specific icon requirements */
-  browserRequirements: Partial<Record<TargetBrowser, {
-    /** Required icon sizes */
-    requiredSizes: string[];
-    /** Recommended icon sizes */
-    recommendedSizes?: string[];
-    /** Icon format requirements */
-    formats?: string[];
-  }>>;
+  browserRequirements: Partial<
+    Record<
+      TargetBrowser,
+      {
+        /** Required icon sizes */
+        requiredSizes: string[];
+        /** Recommended icon sizes */
+        recommendedSizes?: string[];
+        /** Icon format requirements */
+        formats?: string[];
+      }
+    >
+  >;
   /** Action icon configuration */
   actionIcon?: {
     /** Default icon */

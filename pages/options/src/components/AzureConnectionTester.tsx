@@ -4,9 +4,10 @@
  * and diagnostic tools for Azure Speech API integration.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
 import { cn } from '@extension/ui';
+import { useState, useCallback, useEffect } from 'react';
 import type { AzureSpeechConfig } from '@extension/shared/lib/types/azure';
+import type React from 'react';
 
 /**
  * Test types available

@@ -593,8 +593,10 @@ export class TokenManager {
     isRefreshing: boolean;
   } {
     const expiresAt = this.currentToken?.expiresAt.toISOString();
-    const timeUntilExpiry = this.currentToken ? Math.max(0, this.currentToken.expiresAt.getTime() - Date.now()) : undefined;
-    
+    const timeUntilExpiry = this.currentToken
+      ? Math.max(0, this.currentToken.expiresAt.getTime() - Date.now())
+      : undefined;
+
     return {
       hasToken: !!this.currentToken,
       isValid: this.isTokenValid(),

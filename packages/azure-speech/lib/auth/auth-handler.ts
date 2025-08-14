@@ -97,15 +97,15 @@ function createAuthEvent(
       userAgent: navigator.userAgent,
     },
   };
-  
+
   if (metadata !== undefined) {
     event.metadata = metadata;
   }
-  
+
   if (error !== undefined) {
     event.error = error;
   }
-  
+
   return event;
 }
 
@@ -256,15 +256,15 @@ export class AuthenticationHandler {
         status: 'authenticated',
         config,
       };
-      
+
       if (tokenResult.tokenInfo !== undefined) {
         stateUpdate.tokenInfo = tokenResult.tokenInfo;
       }
-      
+
       if (tokenResult.nextRefreshIn !== undefined) {
         stateUpdate.nextRefresh = new Date(Date.now() + tokenResult.nextRefreshIn);
       }
-      
+
       this.updateAuthState(stateUpdate);
 
       this.authState.metrics.successfulAuth++;
@@ -341,15 +341,15 @@ export class AuthenticationHandler {
         const refreshStateUpdate: Partial<AuthenticationState> = {
           status: 'authenticated',
         };
-        
+
         if (result.tokenInfo !== undefined) {
           refreshStateUpdate.tokenInfo = result.tokenInfo;
         }
-        
+
         if (result.nextRefreshIn !== undefined) {
           refreshStateUpdate.nextRefresh = new Date(Date.now() + result.nextRefreshIn);
         }
-        
+
         this.updateAuthState(refreshStateUpdate);
       } else {
         this.lastError = result.error || createAuthError('TOKEN_REFRESH_FAILED', 'Token refresh failed');

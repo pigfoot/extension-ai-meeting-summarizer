@@ -7,11 +7,11 @@
 import { CircuitBreaker } from './circuit-breaker';
 import { ErrorClassifier } from './error-classifier';
 import { RetryManager } from './retry-manager';
+import { ErrorCategory } from '../types/errors';
 import type { CircuitBreakerConfig, CircuitBreakerStats } from './circuit-breaker';
 import type { ErrorClassification } from './error-classifier';
 import type { RetryConfig, RetryResult } from './retry-manager';
 import type { TranscriptionJob, TranscriptionError, RetryStrategy } from '../types';
-import { ErrorCategory } from '../types/errors';
 
 /**
  * Recovery strategy configuration
@@ -155,7 +155,12 @@ const DEFAULT_RECOVERY_CONFIG: RecoveryStrategyConfig = {
   notifications: {
     enabled: true,
     minSeverity: 3,
-    categories: new Set([ErrorCategory.AUTHENTICATION, ErrorCategory.AUDIO, ErrorCategory.CONFIGURATION, ErrorCategory.SERVICE]),
+    categories: new Set([
+      ErrorCategory.AUTHENTICATION,
+      ErrorCategory.AUDIO,
+      ErrorCategory.CONFIGURATION,
+      ErrorCategory.SERVICE,
+    ]),
   },
 };
 

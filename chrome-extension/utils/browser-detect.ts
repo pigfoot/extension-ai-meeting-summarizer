@@ -4,33 +4,21 @@
  * configuration management for the Meeting Summarizer Chrome Extension.
  */
 
-import type { 
-  TargetBrowser, 
-  BrowserCapabilities, 
+import type {
+  TargetBrowser,
+  BrowserCapabilities,
   BrowserVersionRequirement,
-  BrowserCompatibilityIssue 
-} from '../src/types/manifest.js';
+  BrowserCompatibilityIssue,
+} from '../src/types/manifest';
 
 /**
  * Browser user agent patterns for detection
  */
 const BROWSER_PATTERNS: Record<TargetBrowser, RegExp[]> = {
-  chrome: [
-    /Chrome\/(\d+)/,
-    /Chromium\/(\d+)/,
-  ],
-  firefox: [
-    /Firefox\/(\d+)/,
-    /Gecko\/.*Firefox\/(\d+)/,
-  ],
-  edge: [
-    /Edg\/(\d+)/,
-    /Edge\/(\d+)/,
-  ],
-  safari: [
-    /Safari\/(\d+)/,
-    /Version\/(\d+).*Safari/,
-  ],
+  chrome: [/Chrome\/(\d+)/, /Chromium\/(\d+)/],
+  firefox: [/Firefox\/(\d+)/, /Gecko\/.*Firefox\/(\d+)/],
+  edge: [/Edg\/(\d+)/, /Edge\/(\d+)/],
+  safari: [/Safari\/(\d+)/, /Version\/(\d+).*Safari/],
 };
 
 /**
@@ -174,7 +162,7 @@ const BROWSER_PERMISSION_MAPPINGS: Record<TargetBrowser, Record<string, string |
 /**
  * Detect browser type from user agent string
  */
-export function detectBrowserFromUserAgent(userAgent: string): TargetBrowser | null {
+export const detectBrowserFromUserAgent = (userAgent: string): TargetBrowser | null => {
   // Check each browser pattern
   for (const [browser, patterns] of Object.entries(BROWSER_PATTERNS)) {
     for (const pattern of patterns) {
@@ -183,49 +171,49 @@ export function detectBrowserFromUserAgent(userAgent: string): TargetBrowser | n
       }
     }
   }
-  
+
   return null;
-}
+};
 
 /**
  * Extract browser version from user agent string
  */
-export function extractBrowserVersion(userAgent: string, browser: TargetBrowser): string | null {
+export const extractBrowserVersion = (userAgent: string, browser: TargetBrowser): string | null => {
   const patterns = BROWSER_PATTERNS[browser];
-  
+
   for (const pattern of patterns) {
     const match = userAgent.match(pattern);
     if (match && match[1]) {
       return match[1];
     }
   }
-  
+
   return null;
-}
+};
 
 /**
  * Detect browser capabilities based on browser type and version
  */
-export function detectBrowserCapabilities(browser: TargetBrowser, version?: string): BrowserCapabilities {
+export const detectBrowserCapabilities = (browser: TargetBrowser, version?: string): BrowserCapabilities => {
   const apiSupport = BROWSER_API_SUPPORT[browser];
   const permissionMappings = BROWSER_PERMISSION_MAPPINGS[browser];
-  
+
   // Get supported permissions (filter out null mappings)
   const supportedPermissions = Object.entries(permissionMappings)
-    .filter(([_, mapped]) => mapped !== null)
-    .map(([_, mapped]) => mapped as string);
-  
+    .filter(([, mapped]) => mapped !== null)
+    .map(([, mapped]) => mapped as string);
+
   // Get supported APIs
   const supportedAPIs = Object.entries(apiSupport)
-    .filter(([_, supported]) => supported)
-    .map(([api, _]) => api);
-  
+    .filter(([, supported]) => supported)
+    .map(([api]) => api);
+
   // Browser-specific store requirements
   const storeRequirements = getStoreRequirements(browser);
-  
+
   // Known limitations
   const limitations = getBrowserLimitations(browser);
-  
+
   return {
     browser,
     version: version || 'unknown',
@@ -235,12 +223,12 @@ export function detectBrowserCapabilities(browser: TargetBrowser, version?: stri
     storeRequirements,
     limitations,
   };
-}
+};
 
 /**
  * Get store requirements for specific browser
  */
-function getStoreRequirements(browser: TargetBrowser): BrowserCapabilities['storeRequirements'] {
+const getStoreRequirements = (browser: TargetBrowser): BrowserCapabilities['storeRequirements'] => {
   switch (browser) {
     case 'chrome':
       return {
@@ -248,42 +236,39 @@ function getStoreRequirements(browser: TargetBrowser): BrowserCapabilities['stor
         permissions: ['storage', 'scripting'],
         hostPermissions: ['https://*.sharepoint.com/*', 'https://*.office.com/*'],
       };
-    
+
     case 'firefox':
       return {
         permissions: ['storage', 'scripting', 'tabs'],
         hostPermissions: ['https://*.sharepoint.com/*', 'https://*.office.com/*'],
       };
-    
+
     case 'edge':
       return {
         csp: "script-src 'self'; object-src 'self';",
         permissions: ['storage', 'scripting'],
         hostPermissions: ['https://*.sharepoint.com/*', 'https://*.office.com/*'],
       };
-    
+
     case 'safari':
       return {
         permissions: ['storage', 'scripting'],
         hostPermissions: ['https://*.sharepoint.com/*', 'https://*.office.com/*'],
       };
-    
+
     default:
       return {};
   }
-}
+};
 
 /**
  * Get known limitations for specific browser
  */
-function getBrowserLimitations(browser: TargetBrowser): string[] {
+const getBrowserLimitations = (browser: TargetBrowser): string[] => {
   switch (browser) {
     case 'chrome':
-      return [
-        'Service worker lifecycle limitations',
-        'Storage quota restrictions',
-      ];
-    
+      return ['Service worker lifecycle limitations', 'Storage quota restrictions'];
+
     case 'firefox':
       return [
         'No sidePanel API support',
@@ -292,13 +277,10 @@ function getBrowserLimitations(browser: TargetBrowser): string[] {
         'Different permission names (menus vs contextMenus)',
         'No identity API support',
       ];
-    
+
     case 'edge':
-      return [
-        'Service worker lifecycle limitations',
-        'Storage quota restrictions',
-      ];
-    
+      return ['Service worker lifecycle limitations', 'Storage quota restrictions'];
+
     case 'safari':
       return [
         'No sidePanel API support',
@@ -308,28 +290,31 @@ function getBrowserLimitations(browser: TargetBrowser): string[] {
         'No identity API support',
         'Different extension architecture',
       ];
-    
+
     default:
       return [];
   }
-}
+};
 
 /**
  * Check if browser version meets minimum requirements
  */
-export function checkBrowserCompatibility(browser: TargetBrowser, version: string): {
+export const checkBrowserCompatibility = (
+  browser: TargetBrowser,
+  version: string,
+): {
   compatible: boolean;
   issues: BrowserCompatibilityIssue[];
-} {
+} => {
   const requirements = BROWSER_VERSION_REQUIREMENTS[browser];
   const issues: BrowserCompatibilityIssue[] = [];
-  
+
   const versionNum = parseInt(version);
   const minVersionNum = parseInt(requirements.minVersion);
   const recommendedVersionNum = requirements.recommendedVersion ? parseInt(requirements.recommendedVersion) : null;
-  
+
   let compatible = true;
-  
+
   // Check minimum version
   if (versionNum < minVersionNum) {
     compatible = false;
@@ -341,7 +326,7 @@ export function checkBrowserCompatibility(browser: TargetBrowser, version: strin
       suggestedFix: `Update ${browser} to version ${requirements.minVersion} or higher`,
     });
   }
-  
+
   // Check recommended version
   if (recommendedVersionNum && versionNum < recommendedVersionNum) {
     issues.push({
@@ -352,18 +337,20 @@ export function checkBrowserCompatibility(browser: TargetBrowser, version: strin
       suggestedFix: `Update ${browser} to version ${requirements.recommendedVersion} for best experience`,
     });
   }
-  
+
   return { compatible, issues };
-}
+};
 
 /**
  * Get browser-specific manifest adjustments
  */
-export function getBrowserManifestAdjustments(browser: TargetBrowser): {
+export const getBrowserManifestAdjustments = (
+  browser: TargetBrowser,
+): {
   remove: string[];
   modify: Record<string, unknown>;
   add: Record<string, unknown>;
-} {
+} => {
   switch (browser) {
     case 'chrome':
       return {
@@ -371,7 +358,7 @@ export function getBrowserManifestAdjustments(browser: TargetBrowser): {
         modify: {},
         add: {},
       };
-    
+
     case 'firefox':
       return {
         remove: ['sidePanel', 'offscreen'],
@@ -399,14 +386,14 @@ export function getBrowserManifestAdjustments(browser: TargetBrowser): {
           },
         },
       };
-    
+
     case 'edge':
       return {
         remove: [],
         modify: {},
         add: {},
       };
-    
+
     case 'safari':
       return {
         remove: ['sidePanel', 'offscreen', 'declarativeContent'],
@@ -418,7 +405,7 @@ export function getBrowserManifestAdjustments(browser: TargetBrowser): {
         },
         add: {},
       };
-    
+
     default:
       return {
         remove: [],
@@ -426,54 +413,55 @@ export function getBrowserManifestAdjustments(browser: TargetBrowser): {
         add: {},
       };
   }
-}
+};
 
 /**
  * Detect current runtime browser environment
  */
-export function detectRuntimeBrowser(): TargetBrowser | null {
+export const detectRuntimeBrowser = (): TargetBrowser | null => {
   // Check if we're in a browser environment
   if (typeof navigator === 'undefined') {
     return null;
   }
-  
+
   const userAgent = navigator.userAgent;
   return detectBrowserFromUserAgent(userAgent);
-}
+};
 
 /**
  * Check if browser supports specific feature
  */
-export function checkBrowserFeatureSupport(browser: TargetBrowser, feature: string): boolean {
+export const checkBrowserFeatureSupport = (browser: TargetBrowser, feature: string): boolean => {
   const apiSupport = BROWSER_API_SUPPORT[browser];
   return apiSupport[feature] === true;
-}
+};
 
 /**
  * Get mapped permission name for browser
  */
-export function getMappedPermissionName(browser: TargetBrowser, permission: string): string | null {
+export const getMappedPermissionName = (browser: TargetBrowser, permission: string): string | null => {
   const mappings = BROWSER_PERMISSION_MAPPINGS[browser];
   return mappings[permission] || null;
-}
+};
 
 /**
  * Filter permissions based on browser support
  */
-export function filterPermissionsForBrowser(browser: TargetBrowser, permissions: string[]): string[] {
-  return permissions
+export const filterPermissionsForBrowser = (browser: TargetBrowser, permissions: string[]): string[] =>
+  permissions
     .map(permission => getMappedPermissionName(browser, permission))
     .filter((permission): permission is string => permission !== null);
-}
 
 /**
  * Get browser-specific content script configurations
  */
-export function getBrowserContentScriptConfig(browser: TargetBrowser): {
+export const getBrowserContentScriptConfig = (
+  browser: TargetBrowser,
+): {
   injectionStrategy: 'automatic' | 'manual';
   worldContext: 'ISOLATED' | 'MAIN' | undefined;
   runAt: 'document_start' | 'document_end' | 'document_idle';
-} {
+} => {
   switch (browser) {
     case 'chrome':
     case 'edge':
@@ -482,21 +470,21 @@ export function getBrowserContentScriptConfig(browser: TargetBrowser): {
         worldContext: 'ISOLATED',
         runAt: 'document_idle',
       };
-    
+
     case 'firefox':
       return {
         injectionStrategy: 'automatic',
         worldContext: undefined, // Firefox doesn't support world context
         runAt: 'document_idle',
       };
-    
+
     case 'safari':
       return {
         injectionStrategy: 'manual',
         worldContext: undefined,
         runAt: 'document_end',
       };
-    
+
     default:
       return {
         injectionStrategy: 'automatic',
@@ -504,7 +492,7 @@ export function getBrowserContentScriptConfig(browser: TargetBrowser): {
         runAt: 'document_idle',
       };
   }
-}
+};
 
 /**
  * Utility functions for browser detection and configuration
@@ -520,35 +508,35 @@ export const browserDetectUtils = {
   getMappedPermissionName,
   filterPermissionsForBrowser,
   getBrowserContentScriptConfig,
-  
+
   /**
    * Get all supported browsers
    */
   getSupportedBrowsers(): TargetBrowser[] {
     return Object.keys(BROWSER_PATTERNS) as TargetBrowser[];
   },
-  
+
   /**
    * Get browser version requirements
    */
   getBrowserVersionRequirements(browser: TargetBrowser): BrowserVersionRequirement {
     return BROWSER_VERSION_REQUIREMENTS[browser];
   },
-  
+
   /**
    * Check if browser is Chromium-based
    */
   isChromiumBased(browser: TargetBrowser): boolean {
     return ['chrome', 'edge'].includes(browser);
   },
-  
+
   /**
    * Check if browser supports Manifest V3
    */
   supportsManifestV3(browser: TargetBrowser): boolean {
     return ['chrome', 'edge'].includes(browser);
   },
-  
+
   /**
    * Get recommended manifest version for browser
    */

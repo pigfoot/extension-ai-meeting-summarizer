@@ -4,9 +4,10 @@
  * with real-time validation and secure storage integration.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
 import { cn } from '@extension/ui';
+import { useState, useCallback, useEffect } from 'react';
 import type { AzureSpeechConfig, AzureRegion } from '@extension/shared/lib/types/azure';
+import type React from 'react';
 
 /**
  * Form state interface

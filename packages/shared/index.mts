@@ -3,7 +3,7 @@ export type * from './lib/types/azure.js';
 export type * from './lib/types/extension.js';
 export type * from './lib/types/meeting.js';
 
-// Export utilities  
+// Export utilities
 export * from './lib/utils/helpers.js';
 export * from './lib/utils/colorful-logger.js';
 export * from './lib/utils/init-app-with-shadow.js';

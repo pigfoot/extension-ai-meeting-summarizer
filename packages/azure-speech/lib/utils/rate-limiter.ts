@@ -4,9 +4,9 @@
  * Provides request queuing and throttling mechanisms
  */
 
+import { TranscriptionErrorType, ErrorCategory, RetryStrategy, ErrorSeverity } from '../types/errors';
 import type { SpeechServiceQuota } from '../types';
 import type { TranscriptionError } from '../types/errors';
-import { TranscriptionErrorType, ErrorCategory, RetryStrategy, ErrorSeverity } from '../types/errors';
 
 /**
  * Rate limiter configuration
@@ -303,7 +303,7 @@ export class AzureSpeechRateLimiter {
     for (let i = 0; i < this.requestQueue.length; i++) {
       const entry = this.requestQueue[i];
       if (!entry) continue;
-      
+
       const existingEntryPriority = entry.metadata?.priority;
       const existingPriority = priorityOrder[existingEntryPriority] ?? 1;
       if (priority < existingPriority) {
@@ -326,7 +326,7 @@ export class AzureSpeechRateLimiter {
 
       const entry = this.requestQueue[0];
       if (!entry) return;
-      
+
       if (this.canProcessImmediately(entry.metadata)) {
         this.requestQueue.shift();
         this.stats.queuedRequests--;

@@ -1,6 +1,6 @@
 /**
  * Hot Module Replacement (HMR) Package - Enhanced Index
- * 
+ *
  * Provides hot reload functionality for Chrome Extension development
  * with enhanced support for meeting-specific components and modules.
  */
@@ -18,12 +18,12 @@ declare global {
 // Export existing HMR functionality
 export * from './plugins/index.js';
 export * from './initializers/init-client.js';
-export * from './initializers/init-reload-server.js';
-export * from './injections/refresh.js';
-export * from './injections/reload.js';
+export type * from './initializers/init-reload-server.js';
+export type * from './injections/refresh.js';
+export type * from './injections/reload.js';
 export * from './interpreter/index.js';
 export * from './consts.js';
-export * from './types.js';
+export type * from './types.js';
 
 /**
  * Meeting-specific HMR configuration and utilities
@@ -36,46 +36,46 @@ export const MeetingHMRConfig = {
     // Meeting core package
     'packages/meeting-core/**/*.ts',
     'packages/meeting-core/**/*.tsx',
-    
+
     // Meeting types
     'packages/shared/lib/types/meeting.ts',
     'packages/shared/lib/types/azure.ts',
     'packages/shared/lib/types/extension.ts',
-    
+
     // Storage schemas
     'packages/storage/lib/schemas/**/*.ts',
     'packages/storage/lib/utils/**/*.ts',
-    
+
     // Chrome extension manifest and types
     'chrome-extension/manifest.ts',
     'chrome-extension/src/types/**/*.ts',
     'chrome-extension/utils/**/*.ts',
-    
+
     // Background scripts
     'chrome-extension/src/background/**/*.ts',
-    
+
     // Content scripts (for meeting detection)
     'chrome-extension/src/content/**/*.ts',
     'chrome-extension/src/content/**/*.tsx',
   ],
-  
+
   /**
    * Modules that should trigger full reload instead of HMR
    */
   FULL_RELOAD_PATTERNS: [
     // Manifest changes require full reload
     'chrome-extension/manifest.ts',
-    
+
     // Background script changes require full reload
     'chrome-extension/src/background/**/*.ts',
-    
+
     // Core type changes might require full reload
     'packages/shared/lib/types/extension.ts',
-    
+
     // Storage schema changes might require full reload
     'packages/storage/lib/schemas/**/*.ts',
   ],
-  
+
   /**
    * HMR-friendly patterns (can use hot reload)
    */
@@ -83,17 +83,17 @@ export const MeetingHMRConfig = {
     // UI components
     '**/*.tsx',
     '**/*.jsx',
-    
+
     // Utility functions
     'packages/shared/lib/utils/**/*.ts',
     'packages/meeting-core/lib/**/*.ts',
-    
+
     // CSS and styles
     '**/*.css',
     '**/*.scss',
     '**/*.sass',
   ],
-  
+
   /**
    * Development server configuration
    */
@@ -122,7 +122,7 @@ export const MeetingHMRUtils = {
       return regex.test(filePath);
     });
   },
-  
+
   /**
    * Check if file supports hot reload
    */
@@ -132,7 +132,7 @@ export const MeetingHMRUtils = {
       return regex.test(filePath);
     });
   },
-  
+
   /**
    * Determine reload strategy for a file change
    */
@@ -140,14 +140,14 @@ export const MeetingHMRUtils = {
     if (this.shouldFullReload(filePath)) {
       return 'full';
     }
-    
+
     if (this.supportsHotReload(filePath)) {
       return 'hot';
     }
-    
+
     return 'none';
   },
-  
+
   /**
    * Generate HMR-friendly module ID for meeting components
    */
@@ -159,86 +159,92 @@ export const MeetingHMRUtils = {
       .replace(/^.*\/chrome-extension\//, '@extension/chrome-extension/')
       .replace(/\.tsx?$/, '')
       .replace(/\/index$/, '');
-    
+
     return normalizedPath;
   },
-  
+
   /**
    * Create HMR accept callback for meeting modules
    */
   createMeetingHMRCallback(moduleId: string): (() => void) | undefined {
     return () => {
       console.log(`[MeetingHMR] Hot reloading module: ${moduleId}`);
-      
+
       // Trigger custom events for meeting-specific modules
       if (moduleId.includes('meeting-core')) {
-        window.dispatchEvent(new CustomEvent('meeting-core-hmr-update', {
-          detail: { moduleId }
-        }));
+        window.dispatchEvent(
+          new CustomEvent('meeting-core-hmr-update', {
+            detail: { moduleId },
+          }),
+        );
       }
-      
+
       if (moduleId.includes('storage')) {
-        window.dispatchEvent(new CustomEvent('storage-hmr-update', {
-          detail: { moduleId }
-        }));
+        window.dispatchEvent(
+          new CustomEvent('storage-hmr-update', {
+            detail: { moduleId },
+          }),
+        );
       }
-      
+
       if (moduleId.includes('types')) {
         // Type changes might need special handling
-        window.dispatchEvent(new CustomEvent('types-hmr-update', {
-          detail: { moduleId }
-        }));
+        window.dispatchEvent(
+          new CustomEvent('types-hmr-update', {
+            detail: { moduleId },
+          }),
+        );
       }
     };
   },
-  
+
   /**
    * Setup HMR listeners for meeting functionality
    */
   setupMeetingHMRListeners(): void {
     if (typeof window === 'undefined') return;
-    
+
     // Listen for meeting core updates
-    window.addEventListener('meeting-core-hmr-update', (event) => {
+    window.addEventListener('meeting-core-hmr-update', event => {
       const { moduleId } = (event as CustomEvent).detail;
       console.log(`[MeetingHMR] Meeting core module updated: ${moduleId}`);
-      
+
       // Refresh meeting-related UI components
       const meetingElements = document.querySelectorAll('[data-meeting-component]');
       meetingElements.forEach(element => {
         element.dispatchEvent(new CustomEvent('refresh-meeting-component'));
       });
     });
-    
+
     // Listen for storage updates
-    window.addEventListener('storage-hmr-update', (event) => {
+    window.addEventListener('storage-hmr-update', event => {
       const { moduleId } = (event as CustomEvent).detail;
       console.log(`[MeetingHMR] Storage module updated: ${moduleId}`);
-      
+
       // Clear storage caches if needed
       if (moduleId.includes('cache')) {
         window.dispatchEvent(new CustomEvent('clear-storage-cache'));
       }
     });
-    
+
     // Listen for type updates
-    window.addEventListener('types-hmr-update', (event) => {
+    window.addEventListener('types-hmr-update', event => {
       const { moduleId } = (event as CustomEvent).detail;
       console.log(`[MeetingHMR] Types updated: ${moduleId}`);
-      
+
       // Type updates might require full page refresh in development
       if (process.env.NODE_ENV === 'development') {
         console.warn('[MeetingHMR] Type definitions updated, consider full page refresh');
       }
     });
   },
-  
+
   /**
    * Cleanup HMR listeners
    */
   cleanupMeetingHMRListeners(): void {
     if (typeof window === 'undefined') return;
-    
+
     window.removeEventListener('meeting-core-hmr-update', this.setupMeetingHMRListeners);
     window.removeEventListener('storage-hmr-update', this.setupMeetingHMRListeners);
     window.removeEventListener('types-hmr-update', this.setupMeetingHMRListeners);
@@ -255,14 +261,14 @@ export const HMRDevServer = {
   isHMRAvailable(): boolean {
     return typeof module !== 'undefined' && (module as NodeModule).hot !== undefined;
   },
-  
+
   /**
    * Check if running in development mode
    */
   isDevelopment(): boolean {
     return process.env.NODE_ENV === 'development';
   },
-  
+
   /**
    * Enable HMR for meeting modules
    */
@@ -270,34 +276,34 @@ export const HMRDevServer = {
     if (!this.isHMRAvailable() || !this.isDevelopment()) {
       return;
     }
-    
+
     console.log('[MeetingHMR] Enabling HMR for meeting modules');
-    
+
     // Setup HMR listeners
     MeetingHMRUtils.setupMeetingHMRListeners();
-    
+
     // Accept HMR updates for this module
     const moduleHot = (module as NodeModule).hot;
     if (moduleHot) {
       moduleHot.accept();
-      
+
       // Handle disposal
       moduleHot.dispose(() => {
         MeetingHMRUtils.cleanupMeetingHMRListeners();
       });
     }
   },
-  
+
   /**
    * Create HMR-enabled module wrapper
    */
   createHMRModule<T>(moduleFactory: () => T, moduleId?: string): T {
     const moduleResult = moduleFactory();
-    
+
     if (this.isHMRAvailable() && this.isDevelopment()) {
       const id = moduleId || 'anonymous-module';
       console.log(`[MeetingHMR] Registering HMR module: ${id}`);
-      
+
       // Setup HMR callback
       const callback = MeetingHMRUtils.createMeetingHMRCallback(id);
       const moduleHot = (module as NodeModule).hot;
@@ -305,7 +311,7 @@ export const HMRDevServer = {
         moduleHot.accept(undefined, callback);
       }
     }
-    
+
     return moduleResult;
   },
 } as const;

@@ -288,20 +288,21 @@ export const ConfigUtils = {
       outputFormat: 'detailed' as const,
       confidenceThreshold: 0.5,
     };
-    
+
     const mergedConfig = {
       ...baseConfig,
       ...defaults,
       ...userConfig,
     };
-    
+
     // Apply critical safety overrides
     return {
       ...mergedConfig,
-      enableProfanityFilter: userConfig.enableProfanityFilter ?? defaults.enableProfanityFilter ?? baseConfig.enableProfanityFilter,
+      enableProfanityFilter:
+        userConfig.enableProfanityFilter ?? defaults.enableProfanityFilter ?? baseConfig.enableProfanityFilter,
       confidenceThreshold: Math.max(
-        userConfig.confidenceThreshold ?? defaults.confidenceThreshold ?? baseConfig.confidenceThreshold, 
-        0.3
+        userConfig.confidenceThreshold ?? defaults.confidenceThreshold ?? baseConfig.confidenceThreshold,
+        0.3,
       ),
     };
   },

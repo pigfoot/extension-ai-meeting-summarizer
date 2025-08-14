@@ -5,8 +5,8 @@
  */
 
 import { ErrorClassifier } from './error-classifier';
-import type { ErrorClassification } from './error-classifier';
 import { ErrorCategory, RetryStrategy } from '../types/errors';
+import type { ErrorClassification } from './error-classifier';
 
 /**
  * Retry configuration

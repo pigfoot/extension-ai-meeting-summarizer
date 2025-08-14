@@ -5,8 +5,9 @@
  */
 
 import { SpeechConfigBuilder } from '../config/speech-config';
+import { TranscriptionErrorType, ErrorCategory, RetryStrategy, ErrorSeverity } from '../types/errors';
 import type { SpeechClient, SpeechClientStatus, AzureSpeechConfig, TranscriptionConfig } from '../types';
-import { TranscriptionError, TranscriptionErrorType, ErrorCategory, RetryStrategy, ErrorSeverity } from '../types/errors';
+import type { TranscriptionError } from '../types/errors';
 
 /**
  * Speech client implementation with Azure Speech SDK integration

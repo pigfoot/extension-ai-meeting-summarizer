@@ -427,12 +427,14 @@ export class LanguageManager {
 
     // Check cache
     const cached = this.detectionCache.get(cacheKey);
-    if (cached && 
-        cached.metadata && 
-        typeof cached.metadata === 'object' && 
-        'timestamp' in cached.metadata &&
-        typeof cached.metadata.timestamp === 'number' &&
-        Date.now() - cached.metadata.timestamp < this.CACHE_TTL) {
+    if (
+      cached &&
+      cached.metadata &&
+      typeof cached.metadata === 'object' &&
+      'timestamp' in cached.metadata &&
+      typeof cached.metadata.timestamp === 'number' &&
+      Date.now() - cached.metadata.timestamp < this.CACHE_TTL
+    ) {
       return cached;
     }
 

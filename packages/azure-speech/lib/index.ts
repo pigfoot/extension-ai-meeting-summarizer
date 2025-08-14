@@ -6,20 +6,15 @@
 
 // Internal imports for service implementation
 import { AuthenticationHandler } from './auth/auth-handler';
-import { JobValidator } from './batch/job-validator';
 import { JobSubmitter } from './batch/job-submitter';
+import { JobValidator } from './batch/job-validator';
 import { ProgressMonitor } from './batch/progress-monitor';
 import { ResultRetriever } from './batch/result-retriever';
 import { ErrorRecoveryService } from './errors/recovery-service';
 
 // Type imports
-import type { 
-  TranscriptionJob,
-  TranscriptionConfig
-} from './types';
-import type {
-  AuthConfig
-} from './types/auth';
+import type { TranscriptionJob, TranscriptionConfig } from './types';
+import type { AuthConfig } from './types/auth';
 
 // Core types
 export type * from './types';
@@ -64,7 +59,7 @@ export { TokenManager } from './auth/token-manager';
 export { AuthenticationHandler } from './auth/auth-handler';
 export { AuthErrorRecovery } from './auth/auth-recovery';
 
-// Batch Transcription Service (Phase 4 - Complete)  
+// Batch Transcription Service (Phase 4 - Complete)
 export { JobValidator } from './batch/job-validator';
 export { JobSubmitter } from './batch/job-submitter';
 export { ProgressMonitor } from './batch/progress-monitor';
@@ -74,7 +69,7 @@ export { ResultRetriever } from './batch/result-retriever';
 export { JobManager } from './batch/job-manager';
 export { BatchTranscriptionService } from './batch/batch-transcription-service';
 
-// Multi-language Support (Phase 6 - Complete) 
+// Multi-language Support (Phase 6 - Complete)
 export { LanguageManager } from './language/language-manager';
 
 // Error Recovery and Resilience (Phase 5 - Complete)

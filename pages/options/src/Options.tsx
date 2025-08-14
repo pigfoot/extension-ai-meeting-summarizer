@@ -1,10 +1,10 @@
 import '@src/Options.css';
-import { useState } from 'react';
+import { AzureConfigForm, AzureConnectionTester } from './components';
 import { t } from '@extension/i18n';
 import { PROJECT_URL_OBJECT, useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
 import { exampleThemeStorage } from '@extension/storage';
 import { cn, ErrorDisplay, LoadingSpinner, ToggleButton } from '@extension/ui';
-import { AzureConfigForm, AzureConnectionTester } from './components';
+import { useState } from 'react';
 import type { AzureSpeechConfig } from '@extension/shared/lib/types/azure';
 
 type OptionsTab = 'general' | 'azure' | 'advanced';

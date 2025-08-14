@@ -1,23 +1,14 @@
+import { browserDetectUtils, getBrowserManifestAdjustments, checkBrowserCompatibility } from '../browser-detect';
 import { ManifestParser } from '@extension/dev-utils';
-import { IS_DEV, IS_FIREFOX } from '@extension/env';
+import { IS_DEV } from '@extension/env';
 import { colorfulLog } from '@extension/shared';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { platform } from 'node:process';
 import { pathToFileURL } from 'node:url';
+import type { TargetBrowser, ManifestValidationResult, ManifestGenerationResult } from '../../src/types/manifest';
 import type { ManifestType } from '@extension/shared';
 import type { PluginOption } from 'vite';
-import { 
-  browserDetectUtils, 
-  getBrowserManifestAdjustments,
-  checkBrowserCompatibility 
-} from '../browser-detect.js';
-import type { 
-  TargetBrowser, 
-  BrowserManifestConfig,
-  ManifestValidationResult,
-  ManifestGenerationResult 
-} from '../../src/types/manifest.js';
 
 const manifestFile = resolve(import.meta.dirname, '..', '..', 'manifest.js');
 const refreshFilePath = resolve(
@@ -67,74 +58,73 @@ const addRefreshContentScript = (manifest: ManifestType) => {
  * Apply browser-specific manifest transformations
  */
 const applyBrowserSpecificTransformations = (
-  manifest: ManifestType, 
-  targetBrowser: TargetBrowser
+  manifest: ManifestType,
+  targetBrowser: TargetBrowser,
 ): ManifestGenerationResult => {
-  const startTime = Date.now();
   const errors: string[] = [];
   const warnings: string[] = [];
   const transformations: string[] = [];
-  
+
   try {
     // Get browser-specific adjustments
     const adjustments = getBrowserManifestAdjustments(targetBrowser);
-    
+
     // Create a deep copy of the manifest
     const transformedManifest = JSON.parse(JSON.stringify(manifest)) as ManifestType;
-    
+
     // Remove unsupported properties
     adjustments.remove.forEach(property => {
       if (property in transformedManifest) {
-        delete (transformedManifest as any)[property];
+        delete (transformedManifest as Record<string, unknown>)[property];
         transformations.push(`Removed unsupported property: ${property}`);
       }
     });
-    
+
     // Modify existing properties
     Object.entries(adjustments.modify).forEach(([key, value]) => {
       if (key in transformedManifest) {
-        (transformedManifest as any)[key] = value;
+        (transformedManifest as Record<string, unknown>)[key] = value;
         transformations.push(`Modified property: ${key}`);
       }
     });
-    
+
     // Add new properties
     Object.entries(adjustments.add).forEach(([key, value]) => {
-      (transformedManifest as any)[key] = value;
+      (transformedManifest as Record<string, unknown>)[key] = value;
       transformations.push(`Added property: ${key}`);
     });
-    
+
     // Apply browser-specific permission filtering
     if (transformedManifest.permissions) {
       const originalPermissions = [...transformedManifest.permissions];
       transformedManifest.permissions = browserDetectUtils.filterPermissionsForBrowser(
-        targetBrowser, 
-        transformedManifest.permissions
+        targetBrowser,
+        transformedManifest.permissions,
       );
-      
-      const removedPermissions = originalPermissions.filter(
-        p => !transformedManifest.permissions?.includes(p)
-      );
-      
+
+      const removedPermissions = originalPermissions.filter(p => !transformedManifest.permissions?.includes(p));
+
       if (removedPermissions.length > 0) {
         transformations.push(`Filtered unsupported permissions: ${removedPermissions.join(', ')}`);
-        warnings.push(`Some permissions were removed for ${targetBrowser} compatibility: ${removedPermissions.join(', ')}`);
+        warnings.push(
+          `Some permissions were removed for ${targetBrowser} compatibility: ${removedPermissions.join(', ')}`,
+        );
       }
     }
-    
+
     // Apply content script configuration
     if (transformedManifest.content_scripts) {
       const contentScriptConfig = browserDetectUtils.getBrowserContentScriptConfig(targetBrowser);
-      
+
       transformedManifest.content_scripts = transformedManifest.content_scripts.map(script => ({
         ...script,
         run_at: contentScriptConfig.runAt,
         ...(contentScriptConfig.worldContext && { world: contentScriptConfig.worldContext }),
       }));
-      
+
       transformations.push(`Applied ${targetBrowser} content script configuration`);
     }
-    
+
     // Firefox-specific transformations
     if (targetBrowser === 'firefox') {
       // Ensure Firefox-specific background script configuration
@@ -145,7 +135,7 @@ const applyBrowserSpecificTransformations = (
         };
         transformations.push('Converted service worker to background scripts for Firefox');
       }
-      
+
       // Add Firefox-specific browser settings if not present
       if (!transformedManifest.browser_specific_settings) {
         transformedManifest.browser_specific_settings = {
@@ -157,10 +147,10 @@ const applyBrowserSpecificTransformations = (
         transformations.push('Added Firefox browser_specific_settings');
       }
     }
-    
+
     // Validate the transformed manifest
     const validation = validateManifest(transformedManifest, targetBrowser);
-    
+
     return {
       manifest: transformedManifest,
       browser: targetBrowser,
@@ -171,11 +161,10 @@ const applyBrowserSpecificTransformations = (
       validation,
       generatedAt: new Date().toISOString(),
     };
-    
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     errors.push(`Transformation failed: ${errorMessage}`);
-    
+
     return {
       manifest,
       browser: targetBrowser,
@@ -185,7 +174,7 @@ const applyBrowserSpecificTransformations = (
       transformations,
       validation: {
         isValid: false,
-        errors: ['TRANSFORMATION_FAILED' as any],
+        errors: ['TRANSFORMATION_FAILED'],
         warnings: [],
         compatibilityIssues: [],
         validatedAt: new Date().toISOString(),
@@ -199,13 +188,19 @@ const applyBrowserSpecificTransformations = (
  * Validate manifest for specific browser
  */
 const validateManifest = (manifest: ManifestType, targetBrowser: TargetBrowser): ManifestValidationResult => {
-  const errors: any[] = [];
+  const errors: string[] = [];
   const warnings: string[] = [];
-  const compatibilityIssues: any[] = [];
-  
+  const compatibilityIssues: Array<{
+    browser: TargetBrowser;
+    severity: 'error' | 'warning';
+    description: string;
+    property: string;
+    suggestedFix: string;
+  }> = [];
+
   // Check browser capabilities
   const capabilities = browserDetectUtils.detectBrowserCapabilities(targetBrowser);
-  
+
   // Validate permissions
   if (manifest.permissions) {
     manifest.permissions.forEach(permission => {
@@ -220,7 +215,7 @@ const validateManifest = (manifest: ManifestType, targetBrowser: TargetBrowser):
       }
     });
   }
-  
+
   // Validate manifest version
   if (manifest.manifest_version === 3 && !browserDetectUtils.supportsManifestV3(targetBrowser)) {
     compatibilityIssues.push({
@@ -231,10 +226,13 @@ const validateManifest = (manifest: ManifestType, targetBrowser: TargetBrowser):
       suggestedFix: `Consider using Manifest V2 for ${targetBrowser}`,
     });
   }
-  
+
   // Validate background script configuration
   if (manifest.background) {
-    if ('service_worker' in manifest.background && !browserDetectUtils.checkBrowserFeatureSupport(targetBrowser, 'serviceWorker')) {
+    if (
+      'service_worker' in manifest.background &&
+      !browserDetectUtils.checkBrowserFeatureSupport(targetBrowser, 'serviceWorker')
+    ) {
       compatibilityIssues.push({
         browser: targetBrowser,
         severity: 'warning',
@@ -244,12 +242,12 @@ const validateManifest = (manifest: ManifestType, targetBrowser: TargetBrowser):
       });
     }
   }
-  
+
   // Check for browser-specific required fields
   if (targetBrowser === 'firefox' && !manifest.browser_specific_settings?.gecko) {
     warnings.push('Firefox requires browser_specific_settings.gecko configuration');
   }
-  
+
   return {
     isValid: errors.length === 0 && compatibilityIssues.filter(issue => issue.severity === 'error').length === 0,
     errors,
@@ -269,7 +267,7 @@ const getManifestFileName = (browser: TargetBrowser, environment: string): strin
   return browser === 'chrome' ? 'manifest.json' : `manifest.${browser}.json`;
 };
 
-export default (config: { 
+export default (config: {
   outDir: string;
   targetBrowser?: TargetBrowser;
   generateMultipleBrowsers?: boolean;
@@ -281,7 +279,7 @@ export default (config: {
 
     // Apply browser-specific transformations
     const transformationResult = applyBrowserSpecificTransformations(manifest, targetBrowser);
-    
+
     if (!transformationResult.success) {
       colorfulLog(`Manifest generation failed for ${targetBrowser}:`, 'error');
       transformationResult.errors.forEach(error => {
@@ -292,7 +290,10 @@ export default (config: {
 
     // Log transformation details
     if (transformationResult.transformations.length > 0) {
-      colorfulLog(`Applied ${transformationResult.transformations.length} transformations for ${targetBrowser}:`, 'info');
+      colorfulLog(
+        `Applied ${transformationResult.transformations.length} transformations for ${targetBrowser}:`,
+        'info',
+      );
       transformationResult.transformations.forEach(transformation => {
         colorfulLog(`  - ${transformation}`, 'info');
       });
@@ -318,18 +319,15 @@ export default (config: {
 
     // Write manifest file
     try {
-      const manifestString = ManifestParser.convertManifestToString(
-        transformedManifest, 
-        targetBrowser === 'firefox'
-      );
+      const manifestString = ManifestParser.convertManifestToString(transformedManifest, targetBrowser === 'firefox');
       writeFileSync(manifestPath, manifestString);
-      
+
       // Store generation result for debugging
       if (IS_DEV) {
         const resultPath = resolve(to, `manifest.${targetBrowser}.result.json`);
         writeFileSync(resultPath, JSON.stringify(transformationResult, null, 2));
       }
-      
+
       colorfulLog(`✅ Manifest generated for ${targetBrowser}: ${manifestPath}`, 'success');
     } catch (error) {
       colorfulLog(`❌ Failed to write manifest for ${targetBrowser}: ${error}`, 'error');
@@ -345,13 +343,13 @@ export default (config: {
 
   const makeMultipleBrowserManifests = async (baseManifest: ManifestType, outDir: string) => {
     const browsers: TargetBrowser[] = ['chrome', 'firefox', 'edge'];
-    
+
     colorfulLog(`🔄 Generating manifests for multiple browsers: ${browsers.join(', ')}`, 'info');
-    
+
     for (const browser of browsers) {
       try {
         makeManifest(baseManifest, outDir, browser);
-        
+
         // Check browser compatibility
         const compatibility = checkBrowserCompatibility(browser, '120'); // Assume modern version
         if (!compatibility.compatible) {
@@ -360,7 +358,6 @@ export default (config: {
             colorfulLog(`  - ${issue.description}`, 'warning');
           });
         }
-        
       } catch (error) {
         colorfulLog(`❌ Failed to generate manifest for ${browser}: ${error}`, 'error');
       }
@@ -371,11 +368,11 @@ export default (config: {
     name: 'make-manifest-enhanced',
     buildStart() {
       this.addWatchFile(manifestFile);
-      
+
       // Log build configuration
       colorfulLog(`🚀 Building for browser: ${TARGET_BROWSER}`, 'info');
       colorfulLog(`📦 Environment: ${BUILD_ENVIRONMENT}`, 'info');
-      
+
       if (config.generateMultipleBrowsers) {
         colorfulLog(`🌐 Multi-browser build enabled`, 'info');
       }
@@ -383,7 +380,7 @@ export default (config: {
     async writeBundle() {
       const outDir = config.outDir;
       const baseManifest = await getManifestWithCacheBurst();
-      
+
       try {
         if (config.generateMultipleBrowsers) {
           // Generate manifests for all supported browsers
@@ -393,30 +390,36 @@ export default (config: {
           const targetBrowser = config.targetBrowser || TARGET_BROWSER;
           makeManifest(baseManifest, outDir, targetBrowser);
         }
-        
+
         colorfulLog(`✨ Manifest generation completed`, 'success');
-        
       } catch (error) {
         colorfulLog(`💥 Manifest generation failed: ${error}`, 'error');
         throw error;
       }
     },
-    
+
     // Add configuration methods for runtime use
     configResolved(resolvedConfig) {
       // Store resolved config for debugging
       if (IS_DEV) {
         const configPath = resolve(config.outDir, 'build.config.json');
         if (existsSync(config.outDir)) {
-          writeFileSync(configPath, JSON.stringify({
-            target: TARGET_BROWSER,
-            environment: BUILD_ENVIRONMENT,
-            generateMultiple: config.generateMultipleBrowsers,
-            viteConfig: {
-              mode: resolvedConfig.mode,
-              command: resolvedConfig.command,
-            },
-          }, null, 2));
+          writeFileSync(
+            configPath,
+            JSON.stringify(
+              {
+                target: TARGET_BROWSER,
+                environment: BUILD_ENVIRONMENT,
+                generateMultiple: config.generateMultipleBrowsers,
+                viteConfig: {
+                  mode: resolvedConfig.mode,
+                  command: resolvedConfig.command,
+                },
+              },
+              null,
+              2,
+            ),
+          );
         }
       }
     },

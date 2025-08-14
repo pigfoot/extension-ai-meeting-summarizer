@@ -5,10 +5,11 @@
  */
 
 import { SpeechClientFactory } from './speech-client-factory';
+import { ErrorCategory, RetryStrategy, ErrorSeverity } from '../types/errors';
 import { getRateLimiter } from '../utils/rate-limiter';
 import type { AzureSpeechConfig, SpeechClientStatus, SpeechServiceQuota } from '../types';
 import type { AzureSpeechClient } from './speech-client-factory';
-import { TranscriptionError, ErrorCategory, RetryStrategy, ErrorSeverity } from '../types/errors';
+import type { TranscriptionError } from '../types/errors';
 import type { AzureSpeechRateLimiter } from '../utils/rate-limiter';
 
 /**

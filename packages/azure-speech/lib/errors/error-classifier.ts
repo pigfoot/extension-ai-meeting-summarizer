@@ -4,7 +4,8 @@
  * with comprehensive error analysis and classification
  */
 
-import { TranscriptionError, ErrorCategory, RetryStrategy, TranscriptionErrorType, ErrorSeverity } from '../types/errors';
+import { ErrorCategory, RetryStrategy, TranscriptionErrorType, ErrorSeverity } from '../types/errors';
+import type { TranscriptionError } from '../types/errors';
 import type { ErrorDetails } from '../types/index';
 
 /**

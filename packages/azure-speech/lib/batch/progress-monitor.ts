@@ -736,11 +736,11 @@ export class ProgressMonitor {
       progress: progress.progress,
       timestamp: new Date(),
     };
-    
+
     if (progress.estimatedCompletionTime) {
       progressUpdate.estimatedCompletion = progress.estimatedCompletionTime;
     }
-    
+
     monitor.statistics.progressUpdates.push(progressUpdate);
 
     // Update progress statistics
