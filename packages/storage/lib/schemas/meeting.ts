@@ -153,6 +153,7 @@ export interface MeetingStorageStats {
   storageEfficiency: number;
 }
 
+
 /**
  * Meeting storage configuration extending base storage config
  */
@@ -249,6 +250,7 @@ export const meetingRecordSerialization = {
     }
   },
 };
+
 
 /**
  * Transcription cache serialization utilities
@@ -416,17 +418,24 @@ export const validateMeetingRecord = (meeting: Partial<MeetingRecord>): MeetingV
 };
 
 /**
+ * Meeting storage schema for validation
+ */
+export const meetingStorageSchema = {
+  serialize: meetingRecordSerialization.serialize,
+  deserialize: meetingRecordSerialization.deserialize,
+  validate: validateMeetingRecord,
+};
+
+/**
+ * Meeting storage schema type
+ */
+export type MeetingStorageSchemaType = typeof meetingStorageSchema;
+
+/**
  * Validates transcription cache entry
  */
-export const validateCachedTranscription = (cache: Partial<CachedTranscription>): boolean => {
-  return !!(
-    cache.meetingId && 
-    cache.transcriptionText && 
-    cache.cachedAt && 
-    cache.expiresAt && 
-    cache.checksum
-  );
-};
+export const validateCachedTranscription = (cache: Partial<CachedTranscription>): boolean =>
+  !!(cache.meetingId && cache.transcriptionText && cache.cachedAt && cache.expiresAt && cache.checksum);
 
 /**
  * Creates meeting records storage with enhanced configuration

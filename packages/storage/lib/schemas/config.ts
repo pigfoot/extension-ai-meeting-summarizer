@@ -240,7 +240,11 @@ export const encryptionUtils = {
 
       const key = await this.deriveKey(password, salt);
 
-      const decryptedBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv as BufferSource }, key, encryptedData);
+      const decryptedBuffer = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv as BufferSource },
+        key,
+        encryptedData,
+      );
 
       const decoder = new TextDecoder();
       const decryptedString = decoder.decode(decryptedBuffer);
@@ -420,20 +424,15 @@ export const configHistorySerialization = {
 /**
  * Creates secure Azure configuration storage
  */
-export const createSecureAzureConfigStorage = (): BaseStorageType<SecureAzureConfig | null> => {
-  return createStorage('azureConfig', null, {
+export const createSecureAzureConfigStorage = (): BaseStorageType<SecureAzureConfig | null> =>
+  createStorage('azureConfig', null, {
     storageEnum: StorageEnum.Local,
     liveUpdate: true,
     serialization: {
-      serialize: (config: SecureAzureConfig | null) => {
-        return config ? secureAzureConfigSerialization.serialize(config) : '';
-      },
-      deserialize: (text: string) => {
-        return secureAzureConfigSerialization.deserialize(text);
-      },
+      serialize: (config: SecureAzureConfig | null) => (config ? secureAzureConfigSerialization.serialize(config) : ''),
+      deserialize: (text: string) => secureAzureConfigSerialization.deserialize(text),
     },
   });
-};
 
 /**
  * Creates user preferences storage
@@ -521,19 +520,18 @@ export const createExtensionSettingsStorage = (): BaseStorageType<ExtensionSetti
 /**
  * Creates configuration history storage
  */
-export const createConfigHistoryStorage = (): BaseStorageType<ConfigHistoryEntry[]> => {
-  return createStorage('configHistory', [], {
+export const createConfigHistoryStorage = (): BaseStorageType<ConfigHistoryEntry[]> =>
+  createStorage('configHistory', [], {
     storageEnum: StorageEnum.Local,
     liveUpdate: false,
     serialization: configHistorySerialization,
   });
-};
 
 /**
  * Creates configuration backup storage
  */
-export const createConfigBackupStorage = (): BaseStorageType<ConfigBackup[]> => {
-  return createStorage('configBackups', [], {
+export const createConfigBackupStorage = (): BaseStorageType<ConfigBackup[]> =>
+  createStorage('configBackups', [], {
     storageEnum: StorageEnum.Local,
     liveUpdate: false,
     serialization: {
@@ -547,7 +545,22 @@ export const createConfigBackupStorage = (): BaseStorageType<ConfigBackup[]> => 
       },
     },
   });
+
+/**
+ * Configuration schema for validation
+ */
+export const configSchema = {
+  serialize: secureAzureConfigSerialization.serialize,
+  deserialize: secureAzureConfigSerialization.deserialize,
+  validate: validateAzureConfig,
+  encrypt: encryptionUtils.encrypt,
+  decrypt: encryptionUtils.decrypt,
 };
+
+/**
+ * Configuration schema type
+ */
+export type ConfigSchemaType = typeof configSchema;
 
 /**
  * Configuration management utilities
