@@ -563,9 +563,7 @@ export class OfflineQueue {
       this.sortQueueByPriority();
     }, retryDelay);
 
-    console.log(
-      `[OfflineQueue] Scheduling retry for ${item.id} in ${retryDelay}ms (attempt ${item.retryCount})`,
-    );
+    console.log(`[OfflineQueue] Scheduling retry for ${item.id} in ${retryDelay}ms (attempt ${item.retryCount})`);
   }
 
   /**
@@ -685,7 +683,8 @@ export class OfflineQueue {
 
     // Enhanced network information if available
     if ('connection' in navigator) {
-      const connection = (navigator as any).connection;
+      const connection = (navigator as { connection?: { effectiveType?: string; downlink?: number; rtt?: number } })
+        .connection;
 
       const updateNetworkInfo = () => {
         this.networkInfo = {
@@ -781,8 +780,9 @@ export class OfflineQueue {
     if (result.totalProcessed > 0) {
       const totalProcessed = this.stats.totalSuccessful + this.stats.totalFailed;
       if (totalProcessed > 0) {
-        this.stats.averageProcessingTime = 
-          (this.stats.averageProcessingTime * (totalProcessed - result.totalProcessed) + result.duration) / totalProcessed;
+        this.stats.averageProcessingTime =
+          (this.stats.averageProcessingTime * (totalProcessed - result.totalProcessed) + result.duration) /
+          totalProcessed;
       }
     }
   }

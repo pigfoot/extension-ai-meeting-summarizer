@@ -4,7 +4,7 @@
  * date, participant, and keyword search functionality for efficient retrieval.
  */
 
-import type { MeetingStorageRecord, MeetingSearchIndex, MeetingRecord, SpeakerInfo } from '../types/meeting';
+import type { MeetingStorageRecord, MeetingSearchIndex, SpeakerInfo } from '../types/meeting';
 
 export interface MeetingSearchCriteria {
   query?: string;
@@ -166,9 +166,10 @@ export class MeetingIndex {
 
       // Index date
       if (record.meeting.startTime) {
-        const startTimeStr = typeof record.meeting.startTime === 'string' 
-          ? record.meeting.startTime 
-          : new Date(record.meeting.startTime).toISOString();
+        const startTimeStr =
+          typeof record.meeting.startTime === 'string'
+            ? record.meeting.startTime
+            : new Date(record.meeting.startTime).toISOString();
         this.indexDate(record.id, startTimeStr);
       }
 

@@ -1,15 +1,19 @@
 // Base storage types and utilities
-export * from './base/index';
-
 // Example theme storage for UI components
 import { createStorage } from './base/base';
 import { StorageEnum } from './base/enums';
 import type { ThemeStateType, ThemeStorageType } from './base/types';
 
-const baseThemeStorage = createStorage<ThemeStateType>('theme', { theme: 'light', isLight: true }, {
-  storageEnum: StorageEnum.Local,
-  liveUpdate: true,
-});
+export * from './base/index';
+
+const baseThemeStorage = createStorage<ThemeStateType>(
+  'theme',
+  { theme: 'light', isLight: true },
+  {
+    storageEnum: StorageEnum.Local,
+    liveUpdate: true,
+  },
+);
 
 export const exampleThemeStorage: ThemeStorageType = {
   ...baseThemeStorage,
@@ -121,6 +125,10 @@ export { StoragePerformanceMonitor } from './utils/performance-monitor';
 export { StorageQuotaManager as QuotaManager } from './utils/quota-manager';
 export { EncryptionUtils } from './utils/encryption';
 
-export { CompressionUtils as CompressionService, type CompressionResult, type CompressionStats } from './utils/compression';
+export {
+  CompressionUtils as CompressionService,
+  type CompressionResult,
+  type CompressionStats,
+} from './utils/compression';
 
 export { ConfigMigrationManager as ConfigMigrationService, type MigrationResult } from './utils/config-migration';

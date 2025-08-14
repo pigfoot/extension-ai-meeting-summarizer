@@ -153,7 +153,6 @@ export interface MeetingStorageStats {
   storageEfficiency: number;
 }
 
-
 /**
  * Meeting storage configuration extending base storage config
  */
@@ -250,7 +249,6 @@ export const meetingRecordSerialization = {
     }
   },
 };
-
 
 /**
  * Transcription cache serialization utilities

@@ -208,8 +208,8 @@ export class MeetingStorage extends MeetingStorageBase {
             success: false,
             error: validation.error ?? {
               code: 'VALIDATION_FAILED',
-              message: 'Record validation failed'
-            }
+              message: 'Record validation failed',
+            },
           };
         }
       }
@@ -348,7 +348,7 @@ export class MeetingStorage extends MeetingStorageBase {
       }
 
       const existingRecord = records[recordIndex];
-      
+
       if (!existingRecord) {
         return {
           success: false,
@@ -386,8 +386,8 @@ export class MeetingStorage extends MeetingStorageBase {
             success: false,
             error: validation.error ?? {
               code: 'VALIDATION_FAILED',
-              message: 'Updated record validation failed'
-            }
+              message: 'Updated record validation failed',
+            },
           };
         }
       }
@@ -509,9 +509,7 @@ export class MeetingStorage extends MeetingStorageBase {
       }
 
       if (criteria.status && criteria.status.length > 0) {
-        filteredRecords = filteredRecords.filter(record => 
-          criteria.status!.includes(record.storageMetadata.status)
-        );
+        filteredRecords = filteredRecords.filter(record => criteria.status!.includes(record.storageMetadata.status));
       }
 
       if (criteria.source && criteria.source.length > 0) {
@@ -533,7 +531,7 @@ export class MeetingStorage extends MeetingStorageBase {
         const participantQuery = criteria.participant.toLowerCase();
         filteredRecords = filteredRecords.filter(record =>
           record.meeting.participants.some(
-            p => (p.name?.toLowerCase().includes(participantQuery)) || (p.email?.toLowerCase().includes(participantQuery)),
+            p => p.name?.toLowerCase().includes(participantQuery) || p.email?.toLowerCase().includes(participantQuery),
           ),
         );
       }
@@ -720,7 +718,7 @@ export class MeetingStorage extends MeetingStorageBase {
         },
       };
     } catch (error) {
-      const duration = Date.now() - startTime;
+      const _duration = Date.now() - startTime;
 
       return {
         success: false,

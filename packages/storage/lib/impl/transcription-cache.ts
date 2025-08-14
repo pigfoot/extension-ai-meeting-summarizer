@@ -4,7 +4,13 @@
  */
 
 import { CacheBase } from './cache-base';
-import type { CacheOptions, CacheOperationResult, TranscriptionData, TranscriptionCacheEntry, TranscriptionCacheMetadata, URLHashResult } from '../types/cache';
+import type {
+  CacheOptions,
+  CacheOperationResult,
+  TranscriptionData,
+  TranscriptionCacheEntry,
+  TranscriptionCacheMetadata,
+} from '../types/cache';
 
 /**
  * Transcription cache options
@@ -126,7 +132,9 @@ export class TranscriptionCache extends CacheBase<TranscriptionData> {
         textLength: transcriptionData.text.length,
         wordCount: transcriptionData.words?.length || 0,
         cacheTimestamp: now,
-        ...(transcriptionData.azureMetadata?.requestId && { azureRequestId: transcriptionData.azureMetadata.requestId }),
+        ...(transcriptionData.azureMetadata?.requestId && {
+          azureRequestId: transcriptionData.azureMetadata.requestId,
+        }),
         ...options?.metadata,
       };
 
