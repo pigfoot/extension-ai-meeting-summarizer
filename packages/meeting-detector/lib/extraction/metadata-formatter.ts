@@ -137,14 +137,21 @@ export class MetadataFormatter {
    * Format permissions and access control
    */
   formatPermissions(permissions?: unknown): PermissionInfo {
+    const typedPermissions =
+      permissions && typeof permissions === 'object' && permissions !== null
+        ? (permissions as Record<string, unknown>)
+        : {};
+
     return {
-      canView: permissions?.canView ?? true,
-      canDownload: permissions?.canDownload ?? false,
-      canShare: permissions?.canShare ?? false,
-      canEdit: permissions?.canEdit ?? false,
-      requiresAuth: permissions?.requiresAuth ?? true,
-      accessLevel: this.determineAccessLevel(permissions),
-      restrictions: this.formatRestrictions(permissions?.restrictions),
+      canView: typeof typedPermissions.canView === 'boolean' ? typedPermissions.canView : true,
+      canDownload: typeof typedPermissions.canDownload === 'boolean' ? typedPermissions.canDownload : false,
+      canShare: typeof typedPermissions.canShare === 'boolean' ? typedPermissions.canShare : false,
+      canEdit: typeof typedPermissions.canEdit === 'boolean' ? typedPermissions.canEdit : false,
+      requiresAuth: typeof typedPermissions.requiresAuth === 'boolean' ? typedPermissions.requiresAuth : true,
+      accessLevel: this.determineAccessLevel(typedPermissions),
+      restrictions: this.formatRestrictions(
+        Array.isArray(typedPermissions.restrictions) ? (typedPermissions.restrictions as string[]) : undefined,
+      ),
     };
   }
 
@@ -177,23 +184,23 @@ export class MetadataFormatter {
 
   private initializeFormatters(): void {
     this.formatters.set('title', {
-      format: (value: string) => this.cleanAndCapitalize(value),
-      validate: (value: string) => value.length >= 3 && value.length <= 200,
+      format: (value: unknown) => (typeof value === 'string' ? this.cleanAndCapitalize(value) : ''),
+      validate: (value: unknown) => typeof value === 'string' && value.length >= 3 && value.length <= 200,
     });
 
     this.formatters.set('name', {
-      format: (value: string) => this.formatPersonName(value),
-      validate: (value: string) => /^[A-Za-z\s,.-]+$/.test(value),
+      format: (value: unknown) => (typeof value === 'string' ? this.formatPersonName(value) : ''),
+      validate: (value: unknown) => typeof value === 'string' && /^[A-Za-z\s,.-]+$/.test(value),
     });
 
     this.formatters.set('email', {
-      format: (value: string) => value.toLowerCase().trim(),
-      validate: (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+      format: (value: unknown) => (typeof value === 'string' ? value.toLowerCase().trim() : ''),
+      validate: (value: unknown) => typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
     });
 
     this.formatters.set('duration', {
-      format: (value: number) => Math.max(0, Math.round(value)),
-      validate: (value: number) => value >= 0 && value <= 86400, // Max 24 hours
+      format: (value: unknown) => (typeof value === 'number' ? Math.max(0, Math.round(value)) : 0),
+      validate: (value: unknown) => typeof value === 'number' && value >= 0 && value <= 86400, // Max 24 hours
     });
   }
 
@@ -211,7 +218,7 @@ export class MetadataFormatter {
     const formatter = this.formatters.get('title')!;
     const cleaned = this.removeCommonPrefixes(title.trim());
 
-    return formatter.format(cleaned);
+    return formatter.format(cleaned) as string;
   }
 
   private formatDescription(description?: string): string {
@@ -224,7 +231,7 @@ export class MetadataFormatter {
     if (!organizer) return '';
 
     const formatter = this.formatters.get('name')!;
-    return formatter.format(organizer);
+    return formatter.format(organizer) as string;
   }
 
   private formatLocation(location?: string): string {
@@ -424,34 +431,45 @@ export class MetadataFormatter {
   }
 
   private formatAgendaItems(items: unknown[]): FormattedAgendaItem[] {
-    return items.map(item => ({
-      order: item.order,
-      title: this.formatTitle(item.title),
-      description: item.description || '',
-      duration: item.duration,
-      presenter: item.presenter ? this.formatPersonName(item.presenter) : undefined,
-      time_slot: item.timeSlot,
-    }));
+    return items.map(item => {
+      const typedItem = item as Record<string, unknown>;
+      return {
+        order: typeof typedItem.order === 'number' ? typedItem.order : 0,
+        title: this.formatTitle(typeof typedItem.title === 'string' ? typedItem.title : ''),
+        description: typeof typedItem.description === 'string' ? typedItem.description : '',
+        duration: typeof typedItem.duration === 'number' ? typedItem.duration : 0,
+        presenter:
+          typedItem.presenter && typeof typedItem.presenter === 'string'
+            ? this.formatPersonName(typedItem.presenter)
+            : undefined,
+        time_slot: typeof typedItem.timeSlot === 'string' ? typedItem.timeSlot : undefined,
+      };
+    });
   }
 
   private estimateDurationFromItems(items: unknown[]): number {
-    const totalItemDuration = items.reduce((total, item) => total + (item.duration || 0), 0);
-    return totalItemDuration || items.length * 15; // Default 15 min per item
+    const totalItemDuration = items.reduce((total: number, item) => {
+      const typedItem = item as Record<string, unknown>;
+      const duration = typeof typedItem.duration === 'number' ? typedItem.duration : 0;
+      return total + duration;
+    }, 0);
+    return totalItemDuration > 0 ? totalItemDuration : items.length * 15; // Default 15 min per item
   }
 
   private formatPlatformIds(platformIds?: unknown): unknown {
     if (!platformIds) return {};
 
-    const formatted: unknown = {};
+    const formatted: Record<string, unknown> = {};
+    const typedPlatformIds = platformIds as Record<string, unknown>;
 
-    if (platformIds.meetingId) {
-      formatted.meeting_id = platformIds.meetingId;
+    if (typedPlatformIds.meetingId) {
+      formatted.meeting_id = typedPlatformIds.meetingId;
     }
-    if (platformIds.threadId) {
-      formatted.thread_id = platformIds.threadId;
+    if (typedPlatformIds.threadId) {
+      formatted.thread_id = typedPlatformIds.threadId;
     }
-    if (platformIds.channelId) {
-      formatted.channel_id = platformIds.channelId;
+    if (typedPlatformIds.channelId) {
+      formatted.channel_id = typedPlatformIds.channelId;
     }
 
     return formatted;
@@ -517,15 +535,16 @@ export class MetadataFormatter {
   private formatDuration(duration?: number): number | undefined {
     if (typeof duration !== 'number') return undefined;
     const formatter = this.formatters.get('duration')!;
-    return formatter.format(duration);
+    return formatter.format(duration) as number;
   }
 
   private determineAccessLevel(permissions?: unknown): AccessLevel {
     if (!permissions) return 'restricted';
 
-    if (permissions.canEdit) return 'full';
-    if (permissions.canDownload) return 'read_write';
-    if (permissions.canView) return 'read_only';
+    const typedPermissions = permissions as Record<string, unknown>;
+    if (typedPermissions.canEdit) return 'full';
+    if (typedPermissions.canDownload) return 'read_write';
+    if (typedPermissions.canView) return 'read_only';
 
     return 'restricted';
   }
@@ -622,14 +641,19 @@ export class MetadataFormatter {
 
   private generateImprovementSuggestions(scores: unknown): string[] {
     const suggestions: string[] = [];
+    const typedScores = scores as Record<string, unknown>;
 
-    if (scores.completeness < 80) {
+    const completeness = typeof typedScores.completeness === 'number' ? typedScores.completeness : 0;
+    const accuracy = typeof typedScores.accuracy === 'number' ? typedScores.accuracy : 0;
+    const consistency = typeof typedScores.consistency === 'number' ? typedScores.consistency : 0;
+
+    if (completeness < 80) {
       suggestions.push('Add more complete meeting information');
     }
-    if (scores.accuracy < 80) {
+    if (accuracy < 80) {
       suggestions.push('Verify extracted data accuracy');
     }
-    if (scores.consistency < 80) {
+    if (consistency < 80) {
       suggestions.push('Check for data consistency issues');
     }
 
@@ -709,7 +733,8 @@ export class MetadataFormatter {
   }
 
   private validateMeetingMetadata(metadata: unknown): boolean {
-    return !!(metadata.title && metadata.title.length >= 3);
+    const typedMetadata = metadata as Record<string, unknown>;
+    return !!(typedMetadata.title && typeof typedMetadata.title === 'string' && typedMetadata.title.length >= 3);
   }
 }
 

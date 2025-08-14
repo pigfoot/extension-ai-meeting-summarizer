@@ -24,7 +24,7 @@ export class VersionHandler {
   /**
    * Detect SharePoint version from page content and URL
    */
-  async detectSharePointVersion(url: string, _document: Document): Promise<VersionDetectionResult> {
+  async detectSharePointVersion(url: string, document: Document): Promise<VersionDetectionResult> {
     const cacheKey = this.generateCacheKey(url);
 
     // Check cache first
@@ -33,7 +33,7 @@ export class VersionHandler {
       return cached;
     }
 
-    const result = await this.performVersionDetection(url, _document);
+    const result = await this.performVersionDetection(url, document);
 
     // Cache result
     this.detectionResults.set(cacheKey, {
@@ -60,7 +60,7 @@ export class VersionHandler {
     document: Document,
     config: DetectionConfig,
   ): Promise<MeetingDetection | null> {
-    const versionResult = await this.detectSharePointVersion(url, _document);
+    const versionResult = await this.detectSharePointVersion(url, document);
 
     // Try primary version strategy
     const primaryStrategy = this.getDetectionStrategy(versionResult.version);
@@ -311,7 +311,7 @@ export class VersionHandler {
       let matchedPatterns = 0;
 
       for (const pattern of strategy.detectionPatterns) {
-        if (this.testPattern(pattern, _document)) {
+        if (this.testPattern(pattern, document)) {
           score += pattern.weight;
           matchedPatterns++;
         }
@@ -374,7 +374,7 @@ export class VersionHandler {
 
     // Check for supported features
     for (const feature of strategy.supportedFeatures) {
-      if (await this.testFeature(feature, _document)) {
+      if (await this.testFeature(feature, document)) {
         features.push(feature);
       }
     }
@@ -420,13 +420,13 @@ export class VersionHandler {
 
   private async tryDetectionStrategy(
     strategy: VersionStrategy,
-    _url: string,
-    _document: Document,
-    _config: DetectionConfig,
+    url: string,
+    document: Document,
+    config: DetectionConfig,
   ): Promise<MeetingDetection | null> {
-    void _url;
-    void _document;
-    void _config;
+    void url;
+    void document;
+    void config;
     try {
       // This would integrate with actual detection logic
       // For now, return a mock result indicating the strategy was attempted

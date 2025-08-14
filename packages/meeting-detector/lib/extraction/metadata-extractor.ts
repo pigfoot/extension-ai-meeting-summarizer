@@ -3,7 +3,7 @@
  * Extracts meeting title, date, organizer, and other metadata from page content
  */
 
-import type { MeetingMetadata } from '../types/index';
+import type { MeetingMetadata, RecordingPermissions } from '../types/index';
 
 /**
  * Comprehensive meeting metadata extraction from page content
@@ -165,7 +165,7 @@ export class MetadataExtractor {
 
     for (const source of organizerSources) {
       const organizer = source();
-      if (organizer && this.isValidPersonName(organizer)) {
+      if (organizer && typeof organizer === 'string' && this.isValidPersonName(organizer)) {
         return this.cleanPersonName(organizer);
       }
     }
@@ -231,7 +231,7 @@ export class MetadataExtractor {
 
     for (const source of durationSources) {
       const duration = source();
-      if (duration && duration > 0) {
+      if (duration && typeof duration === 'number' && duration > 0) {
         return duration;
       }
     }
@@ -735,7 +735,7 @@ export class MetadataExtractor {
     return undefined;
   }
 
-  private extractPlatformIds(document: Document, url: string): Record<string, unknown> {
+  private extractPlatformIds(document: Document, url: string): Record<string, unknown> | undefined {
     const ids: Record<string, unknown> = {};
 
     // Extract from URL
@@ -771,8 +771,8 @@ export class MetadataExtractor {
     return this.extractFromSelectors(document, locationSelectors) || undefined;
   }
 
-  private extractPermissions(document: Document): Record<string, unknown> {
-    const permissions: Record<string, unknown> = {
+  private extractPermissions(document: Document): RecordingPermissions {
+    const permissions: RecordingPermissions = {
       canAccess: true,
       canDownload: false,
       canShare: false,

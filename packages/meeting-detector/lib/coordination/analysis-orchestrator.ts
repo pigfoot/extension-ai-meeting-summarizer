@@ -112,7 +112,7 @@ export class AnalysisOrchestrator {
 
       // Step 2: Tenant Configuration
       const tenantConfiguration = await this.executeStep(workflow, 'tenant_config', async () =>
-        tenantConfig.detectTenantConfig(url, _document),
+        tenantConfig.detectTenantConfig(url, document),
       );
 
       // Step 3: Core Analysis
@@ -503,10 +503,15 @@ export class AnalysisOrchestrator {
     }
 
     // Data completeness
-    if (meetingData?.extractionContext?.completeness >= 80) {
+    const typedMeetingData = meetingData as
+      | { extractionContext?: { completeness?: number }; tenantConfig?: { tenantId?: string } }
+      | null
+      | undefined;
+    const completeness = typedMeetingData?.extractionContext?.completeness;
+    if (typeof completeness === 'number' && completeness >= 80) {
       score += 25;
       factors.push({ name: 'complete_data', weight: 25, passed: true });
-    } else if (meetingData?.extractionContext?.completeness >= 50) {
+    } else if (typeof completeness === 'number' && completeness >= 50) {
       score += 12;
       factors.push({ name: 'partial_data', weight: 12, passed: true });
     }
@@ -524,7 +529,8 @@ export class AnalysisOrchestrator {
     }
 
     // Tenant configuration
-    if (meetingData?.tenantConfig && meetingData.tenantConfig.tenantId !== 'default') {
+    const tenantId = typedMeetingData?.tenantConfig?.tenantId;
+    if (tenantId && typeof tenantId === 'string' && tenantId !== 'default') {
       score += 10;
       factors.push({ name: 'tenant_identified', weight: 10, passed: true });
     }
@@ -573,7 +579,8 @@ export class AnalysisOrchestrator {
     // Update workflow metadata with change information
     const workflow = this.activeWorkflows.get(workflowId);
     if (workflow) {
-      const changeCount = workflow.metadata.get('changeCount') || 0;
+      const changeCount =
+        typeof workflow.metadata.get('changeCount') === 'number' ? (workflow.metadata.get('changeCount') as number) : 0;
       workflow.metadata.set('changeCount', changeCount + changes.length);
       workflow.metadata.set('lastChange', Date.now());
     }

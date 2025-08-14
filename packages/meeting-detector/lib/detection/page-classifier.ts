@@ -5,7 +5,13 @@
 
 import { domainDetector } from './domain-detector';
 import type { MeetingPlatform, DetectionStatus } from '../types/index';
-import type { PageAnalysisResult, ContentIndicator, IndicatorType, IndicatorPriority } from '../types/page';
+import type {
+  PageAnalysisResult,
+  ContentIndicator,
+  IndicatorType,
+  IndicatorPriority,
+  AnalysisError,
+} from '../types/page';
 
 /**
  * Page classification and meeting content identification
@@ -25,7 +31,7 @@ export class PageClassifier {
   async classifyPage(url: string, document?: Document): Promise<PageAnalysisResult> {
     const startTime = Date.now();
     const indicators: ContentIndicator[] = [];
-    const errors: unknown[] = [];
+    const errors: AnalysisError[] = [];
 
     try {
       // Detect platform from domain
@@ -68,7 +74,7 @@ export class PageClassifier {
       };
     } catch (error) {
       errors.push({
-        code: 'CLASSIFICATION_ERROR',
+        code: 'parsing_failed',
         message: 'Failed to classify page',
         stack: error instanceof Error ? error.stack : undefined,
       });

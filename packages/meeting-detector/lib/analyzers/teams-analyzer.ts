@@ -8,7 +8,7 @@ import { teamsDetector } from '../detection/teams-detector';
 import type { TeamsMeetingContext } from '../detection/teams-detector';
 import type { MeetingMessage, StreamVideoInfo } from '../types/analyzer';
 import type { MeetingMetadata } from '../types/index';
-import type { PageAnalysisResult, ContentIndicator, AnalyzedElement } from '../types/page';
+import type { PageAnalysisResult, ContentIndicator, AnalyzedElement, ElementType } from '../types/page';
 
 /**
  * Teams-specific page analysis and meeting detection
@@ -30,11 +30,11 @@ export class TeamsAnalyzer {
 
     try {
       // Basic page classification
-      const basicAnalysis = await pageClassifier.classifyPage(url, _document);
+      const basicAnalysis = await pageClassifier.classifyPage(url, document);
 
       // Teams-specific analysis
       const teamsElements = this.analyzeTeamsStructure(document);
-      const meetingContext = teamsDetector.identifyMeetingContext(url, _document);
+      const meetingContext = teamsDetector.identifyMeetingContext(url, document);
       const channelInfo = this.analyzeChannelConversation(document);
       const recordingInfo = this.analyzeTeamsRecordings(document);
 
@@ -68,7 +68,7 @@ export class TeamsAnalyzer {
    * Analyze page for general page analysis interface
    */
   async analyzePage(document: Document, url: string): Promise<unknown> {
-    const analysis = await this.analyzeTeamsPage(url, _document);
+    const analysis = await this.analyzeTeamsPage(url, document);
     return {
       platform: 'teams' as const,
       confidence: analysis.confidence,
@@ -95,7 +95,7 @@ export class TeamsAnalyzer {
 
     try {
       // Extract meeting context
-      const meetingContext = teamsDetector.identifyMeetingContext(url, _document);
+      const meetingContext = teamsDetector.identifyMeetingContext(url, document);
 
       // Extract title
       metadata.title = this.extractMeetingTitle(document);
@@ -127,7 +127,12 @@ export class TeamsAnalyzer {
       metadata.location = this.extractMeetingLocation(document);
 
       // Extract permissions
-      metadata.permissions = this.extractMeetingPermissions(document);
+      metadata.permissions = this.extractMeetingPermissions(document) as {
+        canAccess: boolean;
+        canDownload: boolean;
+        canShare: boolean;
+        restrictions?: string[];
+      };
     } catch (error) {
       console.error('Teams metadata extraction error:', error);
     }
@@ -214,7 +219,7 @@ export class TeamsAnalyzer {
     return elements;
   }
 
-  private analyzeElement(element: Element, elementType: unknown): AnalyzedElement {
+  private analyzeElement(element: Element, elementType: ElementType): AnalyzedElement {
     return {
       tagName: element.tagName,
       classes: Array.from(element.classList),
@@ -222,7 +227,7 @@ export class TeamsAnalyzer {
       textContent: element.textContent?.substring(0, 200) || '',
       attributes: this.getElementAttributes(element),
       selector: this.getElementSelector(element),
-      elementType,
+      elementType: elementType,
       relevance: this.calculateElementRelevance(element, elementType),
     };
   }
@@ -565,7 +570,7 @@ export class TeamsAnalyzer {
     return selector;
   }
 
-  private calculateElementRelevance(element: Element, elementType: string): number {
+  private calculateElementRelevance(element: Element, elementType: ElementType): number {
     let relevance = 0.5;
 
     const text = element.textContent?.toLowerCase() || '';

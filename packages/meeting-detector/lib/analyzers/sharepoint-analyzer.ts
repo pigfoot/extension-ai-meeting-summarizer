@@ -5,7 +5,13 @@
 
 import { pageClassifier } from '../detection/page-classifier';
 import type { MeetingMetadata } from '../types/index';
-import type { PageAnalysisResult, ContentIndicator, AnalyzedElement, SharePointPagePattern } from '../types/page';
+import type {
+  PageAnalysisResult,
+  ContentIndicator,
+  AnalyzedElement,
+  SharePointPagePattern,
+  ElementType,
+} from '../types/page';
 
 /**
  * SharePoint-specific page analysis and meeting detection
@@ -28,7 +34,7 @@ export class SharePointAnalyzer {
 
     try {
       // Basic page classification
-      const basicAnalysis = await pageClassifier.classifyPage(url, _document);
+      const basicAnalysis = await pageClassifier.classifyPage(url, document);
 
       // SharePoint-specific analysis
       const sharePointElements = this.analyzeSharePointStructure(document);
@@ -66,7 +72,7 @@ export class SharePointAnalyzer {
    * Analyze page for general page analysis interface
    */
   async analyzePage(document: Document, url: string): Promise<PageAnalysisResult> {
-    const analysis = await this.analyzeSharePointPage(url, _document);
+    const analysis = await this.analyzeSharePointPage(url, document);
     return {
       platform: 'sharepoint' as const,
       confidence: analysis.confidence,
@@ -111,13 +117,25 @@ export class SharePointAnalyzer {
       metadata.topics = this.extractTopics(document);
 
       // Extract SharePoint-specific IDs
-      metadata.platformIds = this.extractSharePointIds(url, _document);
+      metadata.platformIds = this.extractSharePointIds(url, document) as
+        | {
+            meetingId?: string | undefined;
+            threadId?: string | undefined;
+            conversationId?: string | undefined;
+            channelId?: string | undefined;
+          }
+        | undefined;
 
       // Extract location/context
       metadata.location = this.extractLocation(document);
 
       // Extract permissions
-      metadata.permissions = this.extractPermissions(document);
+      metadata.permissions = this.extractPermissions(document) as {
+        canAccess: boolean;
+        canDownload: boolean;
+        canShare: boolean;
+        restrictions?: string[];
+      };
     } catch (error) {
       console.error('Metadata extraction error:', error);
     }
@@ -398,7 +416,7 @@ export class SharePointAnalyzer {
     return elements;
   }
 
-  private analyzeElement(element: Element, elementType: unknown): AnalyzedElement {
+  private analyzeElement(element: Element, elementType: ElementType): AnalyzedElement {
     return {
       tagName: element.tagName,
       classes: Array.from(element.classList),
@@ -406,7 +424,7 @@ export class SharePointAnalyzer {
       textContent: element.textContent?.substring(0, 200) || '',
       attributes: this.getElementAttributes(element),
       selector: this.getElementSelector(element),
-      elementType,
+      elementType: elementType,
       relevance: this.calculateElementRelevance(element, elementType),
     };
   }
@@ -432,7 +450,7 @@ export class SharePointAnalyzer {
     return selector;
   }
 
-  private calculateElementRelevance(element: Element, elementType: string): number {
+  private calculateElementRelevance(element: Element, elementType: ElementType): number {
     let relevance = 0.5; // Base relevance
 
     const text = element.textContent?.toLowerCase() || '';

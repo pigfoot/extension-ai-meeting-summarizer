@@ -3,8 +3,9 @@
  * Identifies SharePoint domains and tenant configurations
  */
 
+import { TenantType } from '../types/tenant';
 import type { MeetingPlatform } from '../types/index';
-import type { TenantInfo, DomainConfig, SharePointConfig } from '../types/tenant';
+import type { TenantInfo, DomainConfig, SharePointConfig, TeamsConfig, TenantRegion } from '../types/tenant';
 
 /**
  * SharePoint domain detection and validation
@@ -33,7 +34,7 @@ export class DomainDetector {
         return {
           domain: hostname,
           platform: customDomain.platform,
-          tenantId: customDomain.tenantId || null,
+          tenantId: (customDomain.settings.tenantId as string) || null,
           isCustomDomain: true,
           confidence: 0.9,
           detectionMethod: 'custom_config',
@@ -130,8 +131,8 @@ export class DomainDetector {
 
       // Method 3: Extract from custom domains (if configured)
       const customDomain = this.customDomains.find(d => hostname.includes(d.domain.replace('*', '')));
-      if (customDomain?.tenantId) {
-        return customDomain.tenantId;
+      if (customDomain && customDomain.settings.tenantId) {
+        return customDomain.settings.tenantId as string;
       }
 
       // Method 4: Try to extract from URL path
@@ -316,9 +317,9 @@ export class DomainDetector {
       primaryDomain: domain,
       additionalDomains: [],
       sharePointConfig: {} as SharePointConfig,
-      teamsConfig: {} as unknown,
-      region: 'north_america' as unknown,
-      type: 'corporate' as unknown,
+      teamsConfig: {} as TeamsConfig,
+      region: 'north_america' as TenantRegion,
+      type: TenantType.CORPORATE,
       lastUpdated: new Date(),
     };
   }

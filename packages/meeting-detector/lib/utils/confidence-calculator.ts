@@ -685,7 +685,7 @@ export class ConfidenceCalculator {
     return {
       completeness: this.calculateCompletenessScore(metadata),
       accuracy: 0.8, // Would be calculated based on validation
-      consistency: this.calculateConsistencyScore(metadata),
+      consistency: this.calculateConsistencyScore(),
       freshness: 0.9, // Would be based on extraction time vs content age
     };
   }

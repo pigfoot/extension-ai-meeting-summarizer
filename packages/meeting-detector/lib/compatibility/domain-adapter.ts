@@ -80,8 +80,8 @@ export class DomainAdapter {
       return {
         hostname,
         type: this.detectDomainType(hostname),
-        region: this.detectRegion(hostname, _document),
-        environment: this.detectEnvironment(hostname, _document),
+        region: this.detectRegion(hostname, document),
+        environment: this.detectEnvironment(hostname, document),
         tenant: this.extractTenantInfo(hostname, urlObj),
         features: this.detectDomainFeatures(document),
         customizations: this.detectCustomizations(document),
@@ -99,9 +99,10 @@ export class DomainAdapter {
     sourceDomain: string,
     targetDomain: string,
     tenantConfig: TenantConfiguration,
+    document: Document,
   ): CompatibilityResult {
-    const sourceAnalysis = this.analyzeDomain(sourceDomain, _document);
-    const targetAnalysis = this.analyzeDomain(targetDomain, _document);
+    const sourceAnalysis = this.analyzeDomain(sourceDomain, document);
+    const targetAnalysis = this.analyzeDomain(targetDomain, document);
 
     return {
       compatible: this.areDomainsCompatible(sourceAnalysis, targetAnalysis),
@@ -277,7 +278,7 @@ export class DomainAdapter {
   }
 
   private adaptPermissionsForDomain(permissions: unknown, tenantConfig: TenantConfiguration): unknown {
-    const adapted = { ...permissions };
+    const adapted = { ...(permissions as Record<string, unknown>) };
 
     // Apply tenant-specific permission restrictions
     if (tenantConfig.environment === 'government') {
@@ -314,8 +315,8 @@ export class DomainAdapter {
     return 'global';
   }
 
-  private detectEnvironment(hostname: string, _document: Document): string {
-    void _document;
+  private detectEnvironment(hostname: string, document: Document): string {
+    void document;
     if (hostname.includes('gov') || hostname.includes('mil')) return 'government';
     if (hostname.includes('staging') || hostname.includes('test')) return 'staging';
     if (hostname.includes('dev')) return 'development';
@@ -537,7 +538,7 @@ export class DomainAdapter {
   }
 
   private adaptApiParams(params: unknown, tenantConfig: TenantConfiguration): unknown {
-    const adapted = { ...params };
+    const adapted = { ...(params as Record<string, unknown>) };
 
     // Add tenant-specific parameters
     if (tenantConfig.tenantId !== 'default') {

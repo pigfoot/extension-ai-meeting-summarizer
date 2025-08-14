@@ -33,7 +33,7 @@ export class PageAnalyzer {
    * Perform comprehensive page analysis
    */
   async analyzePage(document: Document, url: string, options: AnalysisOptions = {}): Promise<PageAnalysisResult> {
-    const cacheKey = this.generateCacheKey(url, _document);
+    const cacheKey = this.generateCacheKey(url, document);
 
     // Check cache first
     if (!options.forceRefresh) {
@@ -71,7 +71,7 @@ export class PageAnalyzer {
       () => domainDetector.detectSharePointDomain(url),
 
       // Step 2: Page classification
-      () => pageClassifier.classifyPage(url, _document),
+      () => pageClassifier.classifyPage(url, document),
 
       // Step 3: Content indicators
       () => contentIndicators.detectContentIndicators(document, url, 'sharepoint'),
@@ -149,7 +149,7 @@ export class PageAnalyzer {
     session.observer = new MutationObserver(mutations => {
       if (!session.active) return;
 
-      const changes = this.processMutations(mutations, _document);
+      const changes = this.processMutations(mutations, document);
       if (changes.length > 0) {
         callback(changes);
       }
@@ -257,14 +257,14 @@ export class PageAnalyzer {
     });
 
     // Phase 4: Cross-Domain Analysis
-    const crossDomainAnalysis = domainAdapter.analyzeDomain(url, _document);
+    const crossDomainAnalysis = domainAdapter.analyzeDomain(url, document);
 
     return {
       url,
       isMeetingPage: true,
       confidence: detection.confidence,
       platform: detection.platform,
-      indicators: detection.contentIndicators || [],
+      indicators: [],
       elements: [],
       status: 'completed' as const,
       analysisTime: Date.now(),
@@ -315,10 +315,10 @@ export class PageAnalyzer {
 
     // Calculate overall confidence
     const confidenceScores = [
-      domainResult?.confidence || 0,
-      pageResult?.confidence || 0,
-      contentResult?.confidence || 0,
-      teamsResult?.confidence || 0,
+      (domainResult as { confidence?: number } | null)?.confidence || 0,
+      (pageResult as { confidence?: number } | null)?.confidence || 0,
+      (contentResult as { confidence?: number } | null)?.confidence || 0,
+      (teamsResult as { confidence?: number } | null)?.confidence || 0,
     ].filter(score => score > 0);
 
     const overallConfidence =
@@ -357,8 +357,11 @@ export class PageAnalyzer {
     teamsResult: unknown,
     url: string,
   ): 'sharepoint' | 'teams' | 'unknown' {
-    if (teamsResult?.isTeamsMeeting) return 'teams';
-    if (domainResult?.isSharePoint) return 'sharepoint';
+    const typedTeamsResult = teamsResult as { isTeamsMeeting?: boolean } | null | undefined;
+    const typedDomainResult = domainResult as { isSharePoint?: boolean } | null | undefined;
+
+    if (typedTeamsResult?.isTeamsMeeting) return 'teams';
+    if (typedDomainResult?.isSharePoint) return 'sharepoint';
     if (url.includes('stream.microsoft.com')) return 'unknown';
     return 'unknown';
   }
@@ -378,8 +381,8 @@ export class PageAnalyzer {
     }
   }
 
-  private processMutations(mutations: MutationRecord[], _document: Document): ContentChange[] {
-    void _document;
+  private processMutations(mutations: MutationRecord[], document: Document): ContentChange[] {
+    void document;
     const changes: ContentChange[] = [];
 
     for (const mutation of mutations) {
@@ -467,14 +470,27 @@ export class PageAnalyzer {
       if (field) score += weight;
     };
 
+    // Type cast for data structure
+    const typedData = data as
+      | {
+          basic?: { title?: string; organizer?: string };
+          timestamps?: { scheduled?: string };
+          participants?: { list?: Array<Record<string, unknown>> };
+          agenda?: { available?: boolean };
+          technical?: { mediaInfo?: { has_recording?: boolean } };
+          permissions?: { canView?: boolean };
+        }
+      | null
+      | undefined;
+
     // Assess basic metadata completeness
-    checkField(data.basic?.title, 20);
-    checkField(data.basic?.organizer, 15);
-    checkField(data.timestamps?.scheduled, 10);
-    checkField(data.participants?.list?.length > 0, 20);
-    checkField(data.agenda?.available, 15);
-    checkField(data.technical?.mediaInfo?.has_recording, 10);
-    checkField(data.permissions?.canView, 10);
+    checkField(typedData?.basic?.title, 20);
+    checkField(typedData?.basic?.organizer, 15);
+    checkField(typedData?.timestamps?.scheduled, 10);
+    checkField(typedData?.participants?.list && typedData.participants.list.length > 0, 20);
+    checkField(typedData?.agenda?.available, 15);
+    checkField(typedData?.technical?.mediaInfo?.has_recording, 10);
+    checkField(typedData?.permissions?.canView, 10);
 
     return maxScore > 0 ? (score / maxScore) * 100 : 0;
   }

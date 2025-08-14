@@ -153,7 +153,7 @@ export class PageMonitor {
     return this.startMonitoring(
       'body',
       changes => {
-        this.analyzeChangesForNewContent(changes, detectionConfig, callback);
+        this.analyzeChangesForNewContent(changes, _detectionConfig, callback);
       },
       {
         debounceDelay: 1000,

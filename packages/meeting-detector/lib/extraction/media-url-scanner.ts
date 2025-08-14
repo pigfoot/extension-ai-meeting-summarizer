@@ -3,7 +3,7 @@
  * Detects and extracts audio/video URLs from page content
  */
 
-import type { AudioUrlInfo, MediaFormat } from '../types/index';
+import type { AudioUrlInfo, MediaFormat, MediaQuality } from '../types/index';
 
 /**
  * Audio/video URL detection and extraction from page content
@@ -192,11 +192,11 @@ export class MediaUrlScanner {
   private initializeUrlPatterns(): void {
     this.urlPatterns = [
       // Direct media file patterns
-      /\.(mp4|mp3|wav|m4a|webm|ogg|oga|flac)(?.*)?$/i,
+      /\.(mp4|mp3|wav|m4a|webm|ogg|oga|flac)(\?.*)?$/i,
 
       // Streaming media patterns
-      /\.m3u8(?.*)?$/i, // HLS
-      /\.mpd(?.*)?$/i, // DASH
+      /\.m3u8(\?.*)?$/i, // HLS
+      /\.mpd(\?.*)?$/i, // DASH
 
       // Platform-specific patterns
       /microsoftstream\.com.*\/video/i,
@@ -392,8 +392,8 @@ export class MediaUrlScanner {
     }
   }
 
-  private extractQualityFromElement(element: HTMLMediaElement): unknown {
-    const quality: Record<string, unknown> = {};
+  private extractQualityFromElement(element: HTMLMediaElement): MediaQuality | undefined {
+    const quality: Partial<MediaQuality> = {};
 
     if (element instanceof HTMLVideoElement) {
       quality.resolution = `${element.videoWidth}x${element.videoHeight}`;
@@ -405,7 +405,7 @@ export class MediaUrlScanner {
     quality.sampleRate = undefined;
     quality.codec = undefined;
 
-    return Object.keys(quality).length > 0 ? quality : undefined;
+    return Object.keys(quality).length > 0 ? (quality as MediaQuality) : undefined;
   }
 
   private isEmbeddedMediaUrl(url: string): boolean {

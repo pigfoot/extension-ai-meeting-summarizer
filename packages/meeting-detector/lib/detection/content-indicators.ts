@@ -229,11 +229,11 @@ export class ContentIndicators {
 
     // Direct recording file links
     const recordingPatterns = [
-      /\.mp4(?|$)/i,
-      /\.mp3(?|$)/i,
-      /\.wav(?|$)/i,
-      /\.m4a(?|$)/i,
-      /\.webm(?|$)/i,
+      /\.mp4(\?.*)?$/i,
+      /\.mp3(\?.*)?$/i,
+      /\.wav(\?.*)?$/i,
+      /\.m4a(\?.*)?$/i,
+      /\.webm(\?.*)?$/i,
       /recording/i,
       /playback/i,
     ];

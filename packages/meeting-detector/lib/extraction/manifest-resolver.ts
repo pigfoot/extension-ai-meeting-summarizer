@@ -3,7 +3,7 @@
  * Resolves streaming manifest URLs to direct media URLs
  */
 
-import type { AudioUrlInfo } from '../types/index';
+import type { AudioUrlInfo, AuthTokenInfo } from '../types/index';
 
 /**
  * Streaming manifest URL resolution for HLS and DASH content
@@ -106,9 +106,9 @@ export class ManifestResolver {
    */
   isManifestUrl(url: string): boolean {
     const manifestPatterns = [
-      /\.m3u8(?.*)?$/i, // HLS
-      /\.mpd(?.*)?$/i, // DASH
-      /\/manifest(?.*)?$/i, // Generic manifest
+      /\.m3u8(\?.*)?$/i, // HLS
+      /\.mpd(\?.*)?$/i, // DASH
+      /\/manifest(\?.*)?$/i, // Generic manifest
       /\/playlist\.m3u8/i, // HLS playlist
       /\/master\.m3u8/i, // HLS master playlist
     ];
@@ -496,10 +496,10 @@ export class ManifestResolver {
     }
   }
 
-  private extractAuthTokens(url: string): unknown[] {
+  private extractAuthTokens(url: string): AuthTokenInfo[] {
     // Extract authentication tokens from URL parameters
     // This is a simplified implementation
-    const tokens: unknown[] = [];
+    const tokens: AuthTokenInfo[] = [];
 
     try {
       const urlObj = new URL(url);

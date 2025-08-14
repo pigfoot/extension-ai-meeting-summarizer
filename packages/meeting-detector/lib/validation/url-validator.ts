@@ -217,7 +217,7 @@ export class UrlValidator {
       /[?&]eval=/i, // Eval parameters
 
       // Suspicious file extensions in URLs
-      /\.(exe|bat|cmd|scr|vbs|js)(?|$)/i,
+      /\.(exe|bat|cmd|scr|vbs|js)(\?.*)?$/i,
     ];
   }
 

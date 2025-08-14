@@ -102,7 +102,14 @@ export class RegionalHandler {
 
     // Apply regional custom domains
     if (regionalConfig.customDomains) {
-      adaptedConfig.customDomains = [...(config.customDomains || []), ...regionalConfig.customDomains];
+      adaptedConfig.customDomains = [
+        ...(config.customDomains || []),
+        ...(regionalConfig.customDomains as Array<{
+          domain: string;
+          platform: string;
+          settings: Record<string, unknown>;
+        }>),
+      ];
     }
 
     // Enable debug mode for regions with known issues
