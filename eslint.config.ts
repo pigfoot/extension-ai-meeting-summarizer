@@ -91,6 +91,15 @@ export default config(
       // Disabled per community best practice - allows flexible export placement for better code organization
       'import-x/exports-last': 'off',
       'import-x/first': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+        },
+      ],
     },
     linterOptions: {
       reportUnusedDisableDirectives: 'error',
