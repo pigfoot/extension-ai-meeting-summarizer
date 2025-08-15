@@ -14,14 +14,21 @@ This is Phase 2 of the bug fix workflow. Your goal is to understand why the bug 
 
 ## Instructions
 
-You are working on the analysis phase of the bug fix workflow.
+**Manual Analysis Process**:
 
 1. **Prerequisites**
    - Ensure report.md exists and is complete
    - Load the bug report for context
    - **Load steering documents**: 
-     - Check for .claude/steering/tech.md for technical patterns
-     - Check for .claude/steering/structure.md for project organization
+     ```bash
+     # Windows:
+     claude-code-spec-workflow get-content "C:\path\to\project\.claude\steering\tech.md"
+     claude-code-spec-workflow get-content "C:\path\to\project\.claude\steering\structure.md"
+     
+     # macOS/Linux:
+     claude-code-spec-workflow get-content "/path/to/project/.claude/steering/tech.md"
+     claude-code-spec-workflow get-content "/path/to/project/.claude/steering/structure.md"
+     ```
    - Understand the reported issue completely
 
 2. **Investigation Process**
@@ -44,8 +51,8 @@ You are working on the analysis phase of the bug fix workflow.
       - Identify potential risks
 
 3. **Create Analysis Document**
-   - **Template to Follow**: Use the exact structure from `.claude/templates/bug-analysis-template.md`
-   - **Read and follow**: Load the template and follow all sections precisely
+   - **Template to Follow**: Use the bug analysis template from the pre-loaded context above (do not reload)
+   - **Read and follow**: Use the bug analysis template and follow all sections precisely
    - Document investigation findings following the template structure
 
 ## Template Usage
