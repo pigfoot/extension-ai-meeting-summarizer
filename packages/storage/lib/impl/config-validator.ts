@@ -310,7 +310,7 @@ export class ConfigValidator {
 
     // Calculate final score
     const finalScore = score / maxScore;
-    const totalDuration = Date.now() - startTime;
+    const _totalDuration = Date.now() - startTime;
 
     // Determine overall status
     let status: ValidationResult['status'];
@@ -775,7 +775,7 @@ export class ConfigValidator {
           resolution: 'Ensure endpoint and region settings are consistent',
         });
       }
-    } catch (error) {
+    } catch (_error) {
       issues.push({
         severity: 'error',
         code: 'INVALID_ENDPOINT_URL',

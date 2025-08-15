@@ -59,7 +59,7 @@ export interface ConfigValidationResult {
 /**
  * Encrypted configuration wrapper
  */
-export interface EncryptedConfig<T> {
+export interface EncryptedConfig<_T = unknown> {
   /** Encrypted data */
   encryptedData: string;
   /** Encryption algorithm used */

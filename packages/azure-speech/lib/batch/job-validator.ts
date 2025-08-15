@@ -5,14 +5,19 @@
  */
 
 import type {
-  TranscriptionJob,
   TranscriptionConfig,
   CreateTranscriptionJobRequest,
   AudioFormat,
-  AudioConfig,
   BatchTranscriptionConfig,
-  AzureRegion,
 } from '../types/index';
+
+/**
+ * Job validation result
+ */
+export interface _JobValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
 
 /**
  * Job validation error types

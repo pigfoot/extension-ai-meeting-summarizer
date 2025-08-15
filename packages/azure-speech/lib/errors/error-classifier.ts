@@ -82,7 +82,7 @@ const AUDIO_ERROR_PATTERNS = [/audio/i, /media/i, /codec/i, /format/i, /duration
 /**
  * Get HTTP status code from error
  */
-function getHttpStatusCode(error: Error | TranscriptionError): number | undefined {
+const getHttpStatusCode = (error: Error | TranscriptionError): number | undefined => {
   if ('statusCode' in error && typeof error.statusCode === 'number') {
     return error.statusCode;
   }
@@ -100,12 +100,12 @@ function getHttpStatusCode(error: Error | TranscriptionError): number | undefine
   }
 
   return undefined;
-}
+};
 
 /**
  * Get Azure error code from error details
  */
-function getAzureErrorCode(error: Error | TranscriptionError): string | undefined {
+const getAzureErrorCode = (error: Error | TranscriptionError): string | undefined => {
   if ('azureError' in error && error.azureError) {
     const azureError = error.azureError as ErrorDetails;
     return azureError.code;
@@ -116,24 +116,25 @@ function getAzureErrorCode(error: Error | TranscriptionError): string | undefine
   }
 
   return undefined;
-}
+};
 
 /**
  * Check if error matches patterns
  */
-function matchesPatterns(message: string, patterns: readonly RegExp[]): boolean {
-  return patterns.some(pattern => pattern.test(message));
-}
+const matchesPatterns = (message: string, patterns: readonly RegExp[]): boolean =>
+  patterns.some(pattern => pattern.test(message));
 
 /**
  * Classify HTTP status code
  */
-function classifyHttpStatus(statusCode: number): {
+const classifyHttpStatus = (
+  statusCode: number,
+): {
   category: ErrorCategory;
   retryStrategy: RetryStrategy;
   retryable: boolean;
   severity: number;
-} {
+} => {
   if (HTTP_STATUS_RANGES.RATE_LIMIT.includes(statusCode as 429)) {
     return {
       category: ErrorCategory.QUOTA,
@@ -203,18 +204,20 @@ function classifyHttpStatus(statusCode: number): {
     retryable: false,
     severity: 3,
   };
-}
+};
 
 /**
  * Classify Azure error code
  */
-function classifyAzureError(errorCode: string): {
+const classifyAzureError = (
+  errorCode: string,
+): {
   category: ErrorCategory;
   retryStrategy: RetryStrategy;
   retryable: boolean;
   severity: number;
-} {
-  if (AZURE_ERROR_CODES.QUOTA_EXCEEDED.includes(errorCode as any)) {
+} => {
+  if (AZURE_ERROR_CODES.QUOTA_EXCEEDED.includes(errorCode as never)) {
     return {
       category: ErrorCategory.QUOTA,
       retryStrategy: RetryStrategy.EXPONENTIAL_BACKOFF,
@@ -223,7 +226,7 @@ function classifyAzureError(errorCode: string): {
     };
   }
 
-  if (AZURE_ERROR_CODES.AUTHENTICATION_FAILED.includes(errorCode as any)) {
+  if (AZURE_ERROR_CODES.AUTHENTICATION_FAILED.includes(errorCode as never)) {
     return {
       category: ErrorCategory.AUTHENTICATION,
       retryStrategy: RetryStrategy.NONE,
@@ -232,7 +235,7 @@ function classifyAzureError(errorCode: string): {
     };
   }
 
-  if (AZURE_ERROR_CODES.INVALID_REQUEST.includes(errorCode as any)) {
+  if (AZURE_ERROR_CODES.INVALID_REQUEST.includes(errorCode as never)) {
     return {
       category: ErrorCategory.CONFIGURATION,
       retryStrategy: RetryStrategy.NONE,
@@ -241,7 +244,7 @@ function classifyAzureError(errorCode: string): {
     };
   }
 
-  if (AZURE_ERROR_CODES.RESOURCE_NOT_FOUND.includes(errorCode as any)) {
+  if (AZURE_ERROR_CODES.RESOURCE_NOT_FOUND.includes(errorCode as never)) {
     return {
       category: ErrorCategory.CONFIGURATION,
       retryStrategy: RetryStrategy.NONE,
@@ -250,7 +253,7 @@ function classifyAzureError(errorCode: string): {
     };
   }
 
-  if (AZURE_ERROR_CODES.SERVICE_ERROR.includes(errorCode as any)) {
+  if (AZURE_ERROR_CODES.SERVICE_ERROR.includes(errorCode as never)) {
     return {
       category: ErrorCategory.SERVICE,
       retryStrategy: RetryStrategy.EXPONENTIAL_BACKOFF,
@@ -259,7 +262,7 @@ function classifyAzureError(errorCode: string): {
     };
   }
 
-  if (AZURE_ERROR_CODES.TIMEOUT.includes(errorCode as any)) {
+  if (AZURE_ERROR_CODES.TIMEOUT.includes(errorCode as never)) {
     return {
       category: ErrorCategory.NETWORK,
       retryStrategy: RetryStrategy.LINEAR_BACKOFF,
@@ -268,7 +271,7 @@ function classifyAzureError(errorCode: string): {
     };
   }
 
-  if (AZURE_ERROR_CODES.UNSUPPORTED_MEDIA.includes(errorCode as any)) {
+  if (AZURE_ERROR_CODES.UNSUPPORTED_MEDIA.includes(errorCode as never)) {
     return {
       category: ErrorCategory.AUDIO,
       retryStrategy: RetryStrategy.NONE,
@@ -283,12 +286,12 @@ function classifyAzureError(errorCode: string): {
     retryable: false,
     severity: 3,
   };
-}
+};
 
 /**
  * Generate user action suggestion
  */
-function generateUserAction(category: ErrorCategory, statusCode?: number, azureCode?: string): string | undefined {
+const generateUserAction = (category: ErrorCategory, statusCode?: number, _azureCode?: string): string | undefined => {
   switch (category) {
     case ErrorCategory.AUTHENTICATION:
       return 'Please check your Azure Speech Service subscription key and region configuration';
@@ -314,12 +317,12 @@ function generateUserAction(category: ErrorCategory, statusCode?: number, azureC
     default:
       return 'An unexpected error occurred. Please try again or contact support';
   }
-}
+};
 
 /**
  * Estimate recovery time based on error type
  */
-function estimateRecoveryTime(category: ErrorCategory, retryStrategy: RetryStrategy): number | undefined {
+const estimateRecoveryTime = (category: ErrorCategory, _retryStrategy: RetryStrategy): number | undefined => {
   switch (category) {
     case ErrorCategory.QUOTA:
       return 60000; // 1 minute
@@ -338,7 +341,7 @@ function estimateRecoveryTime(category: ErrorCategory, retryStrategy: RetryStrat
     default:
       return 30000; // 30 seconds
   }
-}
+};
 
 /**
  * Azure Speech error classifier

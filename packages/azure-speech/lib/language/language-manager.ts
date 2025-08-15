@@ -508,14 +508,14 @@ export class LanguageManager {
   detectLanguageFromUrl(url: string): LanguageDetectionResult {
     // Common URL language patterns
     const urlPatterns: Record<string, RegExp> = {
-      'zh-CN': /[\/\-\.](zh|cn|chinese)([\/\-\.]|$)/i,
-      'ja-JP': /[\/\-\.](ja|jp|japanese)([\/\-\.]|$)/i,
-      'es-ES': /[\/\-\.](es|spanish|spain)([\/\-\.]|$)/i,
-      'fr-FR': /[\/\-\.](fr|french|france)([\/\-\.]|$)/i,
-      'de-DE': /[\/\-\.](de|german|germany|deutsch)([\/\-\.]|$)/i,
-      'ar-SA': /[\/\-\.](ar|arabic|saudi)([\/\-\.]|$)/i,
-      'en-GB': /[\/\-\.](en-gb|uk|british)([\/\-\.]|$)/i,
-      'en-US': /[\/\-\.](en|us|american|english)([\/\-\.]|$)/i,
+      'zh-CN': /[/\-.](zh|cn|chinese)([/\-.]|$)/i,
+      'ja-JP': /[/\-.](ja|jp|japanese)([/\-.]|$)/i,
+      'es-ES': /[/\-.](es|spanish|spain)([/\-.]|$)/i,
+      'fr-FR': /[/\-.](fr|french|france)([/\-.]|$)/i,
+      'de-DE': /[/\-.](de|german|germany|deutsch)([/\-.]|$)/i,
+      'ar-SA': /[/\-.](ar|arabic|saudi)([/\-.]|$)/i,
+      'en-GB': /[/\-.](en-gb|uk|british)([/\-.]|$)/i,
+      'en-US': /[/\-.](en|us|american|english)([/\-.]|$)/i,
     };
 
     for (const [language, pattern] of Object.entries(urlPatterns)) {
@@ -646,7 +646,7 @@ export class LanguageManager {
    * Format dates according to language rules
    */
   private formatDates(text: string, config: LanguageConfig): string {
-    const datePattern = /\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}\b/g;
+    const datePattern = /\b\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}\b/g;
 
     return text.replace(datePattern, match => {
       try {

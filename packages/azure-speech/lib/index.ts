@@ -11,7 +11,6 @@ import { JobValidator } from './batch/job-validator';
 import { ProgressMonitor } from './batch/progress-monitor';
 import { ResultRetriever } from './batch/result-retriever';
 import { ErrorRecoveryService } from './errors/recovery-service';
-
 // Type imports
 import type { TranscriptionJob, TranscriptionConfig } from './types';
 import type { AuthConfig } from './types/auth';
@@ -19,7 +18,6 @@ import type { AuthConfig } from './types/auth';
 // Core types
 export type * from './types';
 export type * from './types/auth';
-export type * from './types/errors';
 
 // Configuration and builders
 export {
@@ -86,7 +84,7 @@ export { ErrorRecoveryService as ErrorRecoverySystem } from './errors/recovery-s
  * Provides high-level API for Azure Speech functionality
  */
 export class AzureSpeechService {
-  private clientManager?: any; // SpeechClientManager - keeping as any due to circular dependency
+  private clientManager?: unknown; // SpeechClientManager - keeping as unknown due to circular dependency
   private authHandler?: AuthenticationHandler;
   private jobValidator?: JobValidator;
   private jobSubmitter?: JobSubmitter;

@@ -400,7 +400,7 @@ export class CompressionUtils {
   /**
    * Compress data using Gzip
    */
-  private async compressWithGzip(data: Uint8Array, config: CompressionConfig): Promise<Uint8Array> {
+  private async compressWithGzip(data: Uint8Array, _config: CompressionConfig): Promise<Uint8Array> {
     if ('CompressionStream' in globalThis) {
       return this.compressWithStream('gzip', data);
     } else {
@@ -413,7 +413,7 @@ export class CompressionUtils {
   /**
    * Compress data using Deflate
    */
-  private async compressWithDeflate(data: Uint8Array, config: CompressionConfig): Promise<Uint8Array> {
+  private async compressWithDeflate(data: Uint8Array, _config: CompressionConfig): Promise<Uint8Array> {
     if ('CompressionStream' in globalThis) {
       return this.compressWithStream('deflate', data);
     } else {
@@ -573,7 +573,7 @@ export class CompressionUtils {
   /**
    * Update decompression statistics
    */
-  private updateDecompressionStats(time: number, success: boolean): void {
+  private updateDecompressionStats(time: number, _success: boolean): void {
     this.stats.totalDecompressions++;
 
     const total = this.stats.totalDecompressions;

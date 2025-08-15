@@ -206,35 +206,33 @@ interface ProgressStatistics {
 /**
  * Create progress monitor error
  */
-function createProgressMonitorError(
+const createProgressMonitorError = (
   type: ProgressMonitorErrorType,
   message: string,
   statusCode?: number,
   retryable: boolean = false,
   retryAfter?: number,
   azureError?: ErrorDetails,
-): ProgressMonitorError {
-  return {
-    type,
-    message,
-    retryable,
-    timestamp: new Date(),
-    ...(statusCode !== undefined && { statusCode }),
-    ...(azureError && { azureError }),
-    ...(retryAfter !== undefined && { retryAfter }),
-  };
-}
+): ProgressMonitorError => ({
+  type,
+  message,
+  retryable,
+  timestamp: new Date(),
+  ...(statusCode !== undefined && { statusCode }),
+  ...(azureError && { azureError }),
+  ...(retryAfter !== undefined && { retryAfter }),
+});
 
 /**
  * Calculate adaptive polling interval
  */
-function calculateAdaptiveInterval(
+const calculateAdaptiveInterval = (
   baseInterval: number,
   maxInterval: number,
   currentProgress: number,
   checkCount: number,
   jobStatus: TranscriptionJobStatus,
-): number {
+): number => {
   // Start with base interval
   let interval = baseInterval;
 
@@ -273,12 +271,12 @@ function calculateAdaptiveInterval(
   interval += jitter;
 
   return Math.min(interval, maxInterval);
-}
+};
 
 /**
  * Estimate progress based on job status and time elapsed
  */
-function estimateProgress(status: BatchJobStatus, elapsedTime: number, estimatedDuration?: number): number {
+const estimateProgress = (status: BatchJobStatus, elapsedTime: number, estimatedDuration?: number): number => {
   switch (status) {
     case 'NotStarted':
       return 0;
@@ -304,16 +302,16 @@ function estimateProgress(status: BatchJobStatus, elapsedTime: number, estimated
     default:
       return 0;
   }
-}
+};
 
 /**
  * Estimate completion time
  */
-function estimateCompletionTime(
+const estimateCompletionTime = (
   startTime: Date,
   currentProgress: number,
   status: TranscriptionJobStatus,
-): Date | undefined {
+): Date | undefined => {
   if (status === 'completed' || currentProgress >= 100) {
     return new Date();
   }
@@ -327,12 +325,12 @@ function estimateCompletionTime(
   const remainingTime = estimatedTotalTime - elapsedTime;
 
   return new Date(Date.now() + remainingTime);
-}
+};
 
 /**
  * Map Azure job status to our job status
  */
-function mapAzureJobStatus(azureStatus: BatchJobStatus): TranscriptionJobStatus {
+const mapAzureJobStatus = (azureStatus: BatchJobStatus): TranscriptionJobStatus => {
   switch (azureStatus) {
     case 'NotStarted':
       return 'submitted';
@@ -347,7 +345,7 @@ function mapAzureJobStatus(azureStatus: BatchJobStatus): TranscriptionJobStatus 
     default:
       return 'submitted';
   }
-}
+};
 
 /**
  * Azure Speech batch transcription progress monitor
@@ -577,12 +575,13 @@ export class ProgressMonitor {
           case 403:
             errorType = 'AUTHENTICATION_ERROR';
             break;
-          case 429:
+          case 429: {
             errorType = 'QUOTA_EXCEEDED';
             retryable = true;
             const retryHeader = response.headers.get('retry-after');
             retryAfter = retryHeader ? parseInt(retryHeader, 10) * 1000 : 60000;
             break;
+          }
           case 503:
             errorType = 'SERVICE_UNAVAILABLE';
             retryable = true;
@@ -627,9 +626,9 @@ export class ProgressMonitor {
       const status = mapAzureJobStatus(azureJob.status);
       const progress = estimateProgress(azureJob.status, elapsedTime);
       const estimatedCompletionTime = estimateCompletionTime(jobStartTime, progress, status);
-      const estimatedRemainingTime = estimatedCompletionTime
-        ? Math.max(0, Math.round((estimatedCompletionTime.getTime() - Date.now()) / 1000))
-        : undefined;
+      // const _estimatedRemainingTime = estimatedCompletionTime
+      //   ? Math.max(0, Math.round((estimatedCompletionTime.getTime() - Date.now()) / 1000))
+      //   : undefined;
 
       const jobProgress: JobProgress = {
         jobId: '', // Will be set by caller

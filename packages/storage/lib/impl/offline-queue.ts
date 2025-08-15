@@ -687,18 +687,22 @@ export class OfflineQueue {
         .connection;
 
       const updateNetworkInfo = () => {
-        this.networkInfo = {
-          online: this.isOnline,
-          connectionType: connection.type || 'unknown',
-          effectiveType: connection.effectiveType || 'unknown',
-          rtt: connection.rtt || 0,
-          downlink: connection.downlink || 0,
-          saveData: connection.saveData || false,
-        };
+        if (connection) {
+          this.networkInfo = {
+            online: this.isOnline,
+            connectionType: 'unknown',
+            effectiveType: (connection.effectiveType as 'unknown' | 'slow-2g' | '2g' | '3g' | '4g') || 'unknown',
+            rtt: connection.rtt || 0,
+            downlink: 0,
+            saveData: false,
+          };
+        }
       };
 
       updateNetworkInfo();
-      connection.addEventListener('change', updateNetworkInfo);
+      if (connection && 'addEventListener' in connection) {
+        (connection as EventTarget).addEventListener('change', updateNetworkInfo);
+      }
     }
   }
 

@@ -69,28 +69,26 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 /**
  * Create authentication error
  */
-function createAuthError(
+const createAuthError = (
   type: AuthenticationErrorType,
   message: string,
   statusCode?: number,
   retryable: boolean = false,
   retryAfter?: number,
-): AuthenticationError {
-  return {
-    type,
-    message,
-    retryable,
-    timestamp: new Date(),
-    details: {},
-    ...(statusCode !== undefined && { statusCode }),
-    ...(retryAfter !== undefined && { retryAfter }),
-  };
-}
+): AuthenticationError => ({
+  type,
+  message,
+  retryable,
+  timestamp: new Date(),
+  details: {},
+  ...(statusCode !== undefined && { statusCode }),
+  ...(retryAfter !== undefined && { retryAfter }),
+});
 
 /**
  * Validate subscription key format
  */
-function validateSubscriptionKeyFormat(subscriptionKey: string): AuthenticationError[] {
+const validateSubscriptionKeyFormat = (subscriptionKey: string): AuthenticationError[] => {
   const errors: AuthenticationError[] = [];
 
   if (!subscriptionKey) {
@@ -116,12 +114,12 @@ function validateSubscriptionKeyFormat(subscriptionKey: string): AuthenticationE
   }
 
   return errors;
-}
+};
 
 /**
  * Validate region availability
  */
-function validateRegion(region: string): AuthenticationError[] {
+const validateRegion = (region: string): AuthenticationError[] => {
   const errors: AuthenticationError[] = [];
 
   if (!region) {
@@ -139,16 +137,16 @@ function validateRegion(region: string): AuthenticationError[] {
   }
 
   return errors;
-}
+};
 
 /**
  * Test connectivity to Azure Speech Service
  */
-async function testConnectivity(
+const testConnectivity = async (
   subscriptionKey: string,
   region: AzureRegion,
   timeout: number,
-): Promise<{ success: boolean; error?: AuthenticationError; responseTime?: number }> {
+): Promise<{ success: boolean; error?: AuthenticationError; responseTime?: number }> => {
   const startTime = Date.now();
   const endpoint = AZURE_SPEECH_ENDPOINTS[region];
 
@@ -239,16 +237,16 @@ async function testConnectivity(
       responseTime,
     };
   }
-}
+};
 
 /**
  * Check quota information
  */
-async function checkQuota(
+const checkQuota = async (
   subscriptionKey: string,
   region: AzureRegion,
   timeout: number,
-): Promise<{ usage?: number; limit?: number; resetPeriod?: string; error?: AuthenticationError }> {
+): Promise<{ usage?: number; limit?: number; resetPeriod?: string; error?: AuthenticationError }> => {
   const endpoint = AZURE_SPEECH_ENDPOINTS[region];
 
   if (!endpoint) {
@@ -294,20 +292,20 @@ async function checkQuota(
       ),
     };
   }
-}
+};
 
 /**
  * Generate cache key for validation results
  */
-function getCacheKey(config: AuthConfig, options: ApiKeyValidationOptions): string {
+const getCacheKey = (config: AuthConfig, options: ApiKeyValidationOptions): string => {
   const key = `${config.subscriptionKey}-${config.region}-${JSON.stringify(options)}`;
   return btoa(key).replace(/[^a-zA-Z0-9]/g, '');
-}
+};
 
 /**
  * Get cached validation result
  */
-function getCachedResult(cacheKey: string): CredentialValidationResult | null {
+const getCachedResult = (cacheKey: string): CredentialValidationResult | null => {
   const cached = validationCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.result;
@@ -318,12 +316,12 @@ function getCachedResult(cacheKey: string): CredentialValidationResult | null {
   }
 
   return null;
-}
+};
 
 /**
  * Cache validation result
  */
-function cacheResult(cacheKey: string, result: CredentialValidationResult): void {
+const cacheResult = (cacheKey: string, result: CredentialValidationResult): void => {
   validationCache.set(cacheKey, {
     result,
     timestamp: Date.now(),
@@ -337,7 +335,7 @@ function cacheResult(cacheKey: string, result: CredentialValidationResult): void
 
     oldEntries.forEach(([key]) => validationCache.delete(key));
   }
-}
+};
 
 /**
  * Azure Speech API credential validator
@@ -509,7 +507,7 @@ export class CredentialValidator {
             status: response.ok ? 'healthy' : 'unhealthy',
             responseTime,
           } as const;
-        } catch (error) {
+        } catch (_error) {
           const responseTime = Date.now() - endpointStartTime;
 
           return {

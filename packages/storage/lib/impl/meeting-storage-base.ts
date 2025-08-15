@@ -12,7 +12,6 @@ import type {
   CompressionConfig,
   StorageMetadata,
   MeetingStorageStatus,
-  StoragePriority,
   StoragePerformanceMetrics,
 } from '../types/meeting';
 

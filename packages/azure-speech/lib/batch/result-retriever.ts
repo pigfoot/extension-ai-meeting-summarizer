@@ -6,13 +6,12 @@
 
 import type { AuthConfig } from '../types/auth';
 import type {
+  AzureRegion,
   TranscriptionJob,
   TranscriptionResult,
   TranscriptionSegment,
   TranscriptionWord,
   SpeakerInfo,
-  BatchTranscriptionJob,
-  AzureRegion,
   ErrorDetails,
 } from '../types/index';
 
@@ -242,14 +241,12 @@ const BATCH_TRANSCRIPTION_ENDPOINTS: Record<AzureRegion, string> = {
 /**
  * Convert Azure ticks to seconds
  */
-function ticksToSeconds(ticks: number): number {
-  return ticks / 10000000; // Azure uses 100-nanosecond ticks
-}
+const ticksToSeconds = (ticks: number): number => ticks / 10000000; // Azure uses 100-nanosecond ticks
 
 /**
  * Parse ISO 8601 duration to seconds
  */
-function parseDuration(isoDuration: string): number {
+const parseDuration = (isoDuration: string): number => {
   const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:([\d.]+)S)?/);
   if (!match) return 0;
 
@@ -258,46 +255,44 @@ function parseDuration(isoDuration: string): number {
   const seconds = parseFloat(match[3] || '0');
 
   return hours * 3600 + minutes * 60 + seconds;
-}
+};
 
 /**
  * Create result retrieval error
  */
-function createRetrievalError(
+const createRetrievalError = (
   type: ResultRetrievalErrorType,
   message: string,
   statusCode?: number,
   retryable: boolean = false,
   retryAfter?: number,
   azureError?: ErrorDetails,
-): ResultRetrievalError {
-  return {
-    type,
-    message,
-    retryable,
-    timestamp: new Date(),
-    ...(statusCode !== undefined && { statusCode }),
-    ...(azureError && { azureError }),
-    ...(retryAfter !== undefined && { retryAfter }),
-  };
-}
+): ResultRetrievalError => ({
+  type,
+  message,
+  retryable,
+  timestamp: new Date(),
+  ...(statusCode !== undefined && { statusCode }),
+  ...(azureError && { azureError }),
+  ...(retryAfter !== undefined && { retryAfter }),
+});
 
 /**
  * Calculate exponential backoff delay
  */
-function calculateBackoffDelay(attempt: number, baseDelay: number, maxDelay: number): number {
+const calculateBackoffDelay = (attempt: number, baseDelay: number, maxDelay: number): number => {
   const delay = baseDelay * Math.pow(2, attempt - 1);
   const jitter = Math.random() * 0.1 * delay;
   return Math.min(delay + jitter, maxDelay);
-}
+};
 
 /**
  * Process speaker diarization data
  */
-function processSpeakerData(
+const processSpeakerData = (
   phrases: AzureTranscriptionData['recognizedPhrases'],
-  totalDuration: number,
-): SpeakerInfo[] {
+  _totalDuration: number,
+): SpeakerInfo[] => {
   const speakerMap = new Map<
     number,
     {
@@ -338,15 +333,15 @@ function processSpeakerData(
     totalSpeakingTime: data.totalTime,
     confidence: data.confidenceSum / data.segmentCount,
   }));
-}
+};
 
 /**
  * Process transcription words
  */
-function processWords(
+const processWords = (
   words: AzureTranscriptionData['recognizedPhrases'][0]['nBest'][0]['words'],
   includeTimestamps: boolean,
-): TranscriptionWord[] {
+): TranscriptionWord[] => {
   if (!words || !includeTimestamps) {
     return [];
   }
@@ -357,7 +352,7 @@ function processWords(
     endTime: ticksToSeconds(word.offsetInTicks + word.durationInTicks),
     confidence: word.confidence,
   }));
-}
+};
 
 /**
  * Azure Speech batch transcription result retriever
@@ -591,12 +586,13 @@ export class ResultRetriever {
           case 403:
             errorType = 'AUTHENTICATION_ERROR';
             break;
-          case 429:
+          case 429: {
             errorType = 'QUOTA_EXCEEDED';
             retryable = true;
             const retryHeader = response.headers.get('retry-after');
             retryAfter = retryHeader ? parseInt(retryHeader, 10) * 1000 : 60000;
             break;
+          }
           case 503:
             errorType = 'SERVICE_UNAVAILABLE';
             retryable = true;

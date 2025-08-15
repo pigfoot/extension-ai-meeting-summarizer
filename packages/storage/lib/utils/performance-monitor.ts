@@ -307,8 +307,9 @@ export class StoragePerformanceMonitor {
     };
 
     // Store in a temporary map for completion
-    (this as any).pendingOperations = (this as any).pendingOperations || new Map();
-    (this as any).pendingOperations.set(operationId, timing);
+    const monitor = this as unknown as { pendingOperations?: Map<string, unknown> };
+    monitor.pendingOperations = monitor.pendingOperations || new Map();
+    monitor.pendingOperations.set(operationId, timing);
 
     return operationId;
   }
@@ -321,7 +322,7 @@ export class StoragePerformanceMonitor {
       return;
     }
 
-    const pendingOperations = (this as any).pendingOperations || new Map();
+    const pendingOperations = (this as { pendingOperations?: Map<string, unknown> }).pendingOperations || new Map();
     const partialTiming = pendingOperations.get(operationId);
 
     if (!partialTiming) {
@@ -416,7 +417,7 @@ export class StoragePerformanceMonitor {
 
     try {
       // Check each storage type
-      const storageTypes: Array<{ type: 'local' | 'sync' | 'session'; api: any }> = [
+      const storageTypes: Array<{ type: 'local' | 'sync' | 'session'; api: chrome.storage.StorageArea }> = [
         { type: 'local', api: chrome.storage.local },
         { type: 'sync', api: chrome.storage.sync },
         { type: 'session', api: chrome.storage.session },
@@ -904,7 +905,7 @@ export class StoragePerformanceMonitor {
     if (timeSpan <= 0) return undefined;
 
     const writeRate = totalDataWritten / timeSpan; // bytes per ms
-    const quotaLimit = this.getQuotaLimit(type as any);
+    const quotaLimit = this.getQuotaLimit(type as 'local' | 'sync' | 'session');
     const remainingBytes = quotaLimit - usedBytes;
 
     return writeRate > 0 ? remainingBytes / writeRate : undefined;

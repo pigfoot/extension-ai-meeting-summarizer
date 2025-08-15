@@ -221,9 +221,7 @@ export const MeetingUtils = {
   /**
    * Validate meeting record completeness
    */
-  isValidMeetingRecord(
-    meeting: Partial<import('@extension/shared').MeetingRecord>,
-  ): meeting is import('@extension/shared').MeetingRecord {
+  isValidMeetingRecord(meeting: Partial<MeetingRecord>): meeting is MeetingRecord {
     return !!(
       meeting.id &&
       meeting.title &&
@@ -247,7 +245,7 @@ export const MeetingUtils = {
     list?: string;
     item?: string;
   } | null {
-    const sharepointPattern = /https:\/\/([^.]+)\.sharepoint\.com\/sites\/([^\/]+)\/?/;
+    const sharepointPattern = /https:\/\/([^.]+)\.sharepoint\.com\/sites\/([^/]+)\/?/;
     const match = url.match(sharepointPattern);
 
     if (!match) return null;

@@ -130,9 +130,8 @@ const DEFAULT_CONFIG: CircuitBreakerConfig = {
 /**
  * Create circuit breaker rejection error
  */
-function createRejectionError(state: CircuitBreakerState): Error {
-  return new Error(`Circuit breaker is ${state}. Service calls are temporarily blocked to prevent cascading failures.`);
-}
+const createRejectionError = (state: CircuitBreakerState): Error =>
+  new Error(`Circuit breaker is ${state}. Service calls are temporarily blocked to prevent cascading failures.`);
 
 /**
  * Azure Speech circuit breaker
@@ -155,7 +154,6 @@ export class CircuitBreaker {
    */
   async execute<T>(operation: CircuitBreakerOperation<T>): Promise<CircuitBreakerResult<T>> {
     const startTime = Date.now();
-    const currentState = this.state;
 
     // Check if call should be allowed
     if (!this.shouldAllowCall()) {
@@ -226,7 +224,7 @@ export class CircuitBreaker {
       case 'CLOSED':
         return true;
 
-      case 'OPEN':
+      case 'OPEN': {
         // Check if timeout has passed
         const timeSinceOpen = now - this.lastStateChange.getTime();
         if (timeSinceOpen >= this.config.timeout) {
@@ -234,6 +232,7 @@ export class CircuitBreaker {
           return true;
         }
         return false;
+      }
 
       case 'HALF_OPEN':
         // Allow some traffic through
@@ -365,7 +364,7 @@ export class CircuitBreaker {
   /**
    * Transition to OPEN state
    */
-  private transitionToOpen(errorClassification?: ErrorClassification): void {
+  private transitionToOpen(_errorClassification?: ErrorClassification): void {
     this.state = 'OPEN';
     this.lastStateChange = new Date();
     this.consecutiveSuccesses = 0;

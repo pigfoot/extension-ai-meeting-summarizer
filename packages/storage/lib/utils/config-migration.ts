@@ -5,7 +5,7 @@
  */
 
 import { ConfigValidator } from '../impl/config-validator';
-import type { SecureConfigRecord, ConfigMigration, MigrationStep, ValidationResult } from '../types/config';
+import type { SecureConfigRecord, ConfigMigration, MigrationStep } from '../types/config';
 
 /**
  * Migration execution result
@@ -505,7 +505,7 @@ export class ConfigMigrationManager {
   /**
    * Execute encrypt operation
    */
-  private executeEncryptStep(config: SecureConfigRecord, step: MigrationStep): SecureConfigRecord {
+  private executeEncryptStep(config: SecureConfigRecord, _step: MigrationStep): SecureConfigRecord {
     // This would implement field encryption
     // For now, return config unchanged
     return { ...config };
@@ -514,7 +514,7 @@ export class ConfigMigrationManager {
   /**
    * Execute decrypt operation
    */
-  private executeDecryptStep(config: SecureConfigRecord, step: MigrationStep): SecureConfigRecord {
+  private executeDecryptStep(config: SecureConfigRecord, _step: MigrationStep): SecureConfigRecord {
     // This would implement field decryption
     // For now, return config unchanged
     return { ...config };
@@ -559,7 +559,7 @@ export class ConfigMigrationManager {
 
     // Restore from backup if available
     if (backupId && this.backups.has(backupId)) {
-      const backupConfig = this.backups.get(backupId)!;
+      const _backupConfig = this.backups.get(backupId)!;
       // In real implementation, would restore to storage
       console.info(`Rolled back to backup ${backupId}`);
       return;

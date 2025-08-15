@@ -3,7 +3,7 @@
  * Implements conflict detection and manual resolution options for sync conflicts
  */
 
-import type { SyncConflict, ConflictResolution, ConflictResolutionStrategy, ConflictMetadata } from '../types/cache';
+import type { SyncConflict, ConflictResolutionStrategy } from '../types/cache';
 
 /**
  * Conflict resolution result

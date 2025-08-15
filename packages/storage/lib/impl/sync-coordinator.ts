@@ -418,7 +418,7 @@ export class SyncCoordinator {
    * Get current sync status
    */
   getSyncStatus(): SyncStatus {
-    const queueStats = this.analyzeSyncQueue();
+    const _queueStats = this.analyzeSyncQueue();
 
     return {
       state: this.syncQueue.length > 0 ? 'queued' : 'idle',
@@ -555,7 +555,7 @@ export class SyncCoordinator {
    * Execute individual sync operation
    */
   private async executeSyncOperation(item: SyncQueueItem, strategy: SyncStrategy): Promise<SyncExecutionResult> {
-    const startTime = Date.now();
+    const _startTime = Date.now();
 
     try {
       // Check if operation is already active
@@ -581,7 +581,7 @@ export class SyncCoordinator {
   /**
    * Perform actual sync operation
    */
-  private async performSyncOperation(item: SyncQueueItem, strategy: SyncStrategy): Promise<SyncExecutionResult> {
+  private async performSyncOperation(item: SyncQueueItem, _strategy: SyncStrategy): Promise<SyncExecutionResult> {
     const startTime = Date.now();
     let bytesTransferred = 0;
     const conflicts: SyncConflict[] = [];
@@ -733,7 +733,7 @@ export class SyncCoordinator {
    */
   private extractMetadata(value: unknown): SyncItemMetadata | null {
     if (typeof value === 'object' && value !== null && '__metadata' in value) {
-      return (value as any).__metadata;
+      return (value as { __metadata: SyncItemMetadata }).__metadata;
     }
     return null;
   }
@@ -743,7 +743,7 @@ export class SyncCoordinator {
    */
   private extractData(value: unknown): unknown {
     if (typeof value === 'object' && value !== null && '__data' in value) {
-      return (value as any).__data;
+      return (value as { __data: unknown }).__data;
     }
     return value;
   }
@@ -752,9 +752,9 @@ export class SyncCoordinator {
    * Check for sync conflicts
    */
   private async checkForConflict(
-    key: string,
-    remoteValue: unknown,
-    metadata: SyncItemMetadata,
+    _key: string,
+    _remoteValue: unknown,
+    _metadata: SyncItemMetadata,
   ): Promise<SyncConflict | null> {
     // This is a simplified conflict detection
     // In a real implementation, you'd compare with local data
@@ -764,7 +764,7 @@ export class SyncCoordinator {
   /**
    * Resolve sync conflict
    */
-  private async resolveConflict(conflict: SyncConflict): Promise<{ resolvedData: unknown } | null> {
+  private async resolveConflict(_conflict: SyncConflict): Promise<{ resolvedData: unknown } | null> {
     // Simple last-write-wins resolution
     // In a real implementation, you'd have more sophisticated conflict resolution
     return null;

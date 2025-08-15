@@ -3,7 +3,7 @@
  * Implements size management and access pattern-based optimization
  */
 
-import type { CacheEntry, EvictionPolicy, EvictionStrategy, EvictionResult, EvictionMetrics } from '../types/cache';
+import type { CacheEntry, EvictionPolicy, EvictionStrategy, EvictionMetrics } from '../types/cache';
 
 /**
  * Eviction configuration options

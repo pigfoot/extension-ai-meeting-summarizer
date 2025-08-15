@@ -3,14 +3,7 @@
  * Provides performance monitoring and cache statistics for intelligent caching
  */
 
-import type {
-  CacheEntry,
-  CacheStats,
-  EvictionPolicy,
-  CacheOptions,
-  CacheMetrics,
-  CacheOperationResult,
-} from '../types/cache';
+import type { CacheEntry, CacheStats, CacheOptions, CacheMetrics, CacheOperationResult } from '../types/cache';
 
 /**
  * Cache event types for monitoring

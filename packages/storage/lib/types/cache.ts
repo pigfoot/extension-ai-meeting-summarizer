@@ -5,7 +5,6 @@
 
 // TODO: Fix import path when shared types are available
 // import type { TranscriptionResult } from '@/shared/lib/types/meeting';
-import type { TranscriptionResult } from './meeting';
 
 /**
  * Transcription data interface for caching
@@ -1067,7 +1066,7 @@ export interface OfflineQueueItem {
   /** Operation priority */
   priority: SyncPriority;
   /** Operation data */
-  data: any;
+  data: unknown;
   /** Creation timestamp */
   createdAt: string;
   /** Number of retry attempts */
@@ -1075,7 +1074,7 @@ export interface OfflineQueueItem {
   /** Maximum retry attempts */
   maxRetries: number;
   /** Operation metadata */
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 /**

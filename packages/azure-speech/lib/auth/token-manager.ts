@@ -90,54 +90,50 @@ type TokenEventListener = (event: AuthenticationEvent) => void;
 /**
  * Create authentication error
  */
-function createAuthError(
+const createAuthError = (
   type: AuthenticationErrorType,
   message: string,
   statusCode?: number,
   retryable: boolean = false,
   retryAfter?: number,
-): AuthenticationError {
-  return {
-    type,
-    message,
-    retryable,
-    timestamp: new Date(),
-    details: {},
-    ...(statusCode !== undefined && { statusCode }),
-    ...(retryAfter !== undefined && { retryAfter }),
-  };
-}
+): AuthenticationError => ({
+  type,
+  message,
+  retryable,
+  timestamp: new Date(),
+  details: {},
+  ...(statusCode !== undefined && { statusCode }),
+  ...(retryAfter !== undefined && { retryAfter }),
+});
 
 /**
  * Create authentication event
  */
-function createAuthEvent(
+const createAuthEvent = (
   type: AuthenticationEventType,
   message: string,
   metadata?: Record<string, unknown>,
   error?: AuthenticationError,
-): AuthenticationEvent {
-  return {
-    type,
-    timestamp: new Date(),
-    message,
-    context: {
-      requestId: crypto.randomUUID(),
-      userAgent: navigator.userAgent,
-    },
-    ...(metadata && { metadata }),
-    ...(error && { error }),
-  };
-}
+): AuthenticationEvent => ({
+  type,
+  timestamp: new Date(),
+  message,
+  context: {
+    requestId: crypto.randomUUID(),
+    userAgent: navigator.userAgent,
+  },
+  ...(metadata && { metadata }),
+  ...(error && { error }),
+});
 
 /**
  * Calculate exponential backoff delay
  */
-function calculateBackoffDelay(attempt: number, baseDelay: number, maxDelay: number): number {
+const calculateBackoffDelay = (attempt: number, baseDelay: number, maxDelay: number): number => {
   const delay = baseDelay * Math.pow(2, attempt - 1);
   const jitter = Math.random() * 0.1 * delay;
   return Math.min(delay + jitter, maxDelay);
-}
+};
 
 /**
  * Azure Speech API token manager

@@ -10,8 +10,9 @@ import { RetryManager } from './retry-manager';
 import { ErrorCategory } from '../types/errors';
 import type { CircuitBreakerConfig, CircuitBreakerStats } from './circuit-breaker';
 import type { ErrorClassification } from './error-classifier';
-import type { RetryConfig, RetryResult } from './retry-manager';
-import type { TranscriptionJob, TranscriptionError, RetryStrategy } from '../types';
+import type { RetryConfig } from './retry-manager';
+import type { TranscriptionJob, TranscriptionError } from '../types';
+import type { TranscriptionErrorType, RetryStrategy, ErrorSeverity } from '../types/errors';
 
 /**
  * Recovery strategy configuration
@@ -204,7 +205,7 @@ export class ErrorRecoveryService {
     this.circuitBreaker = new CircuitBreaker(circuitBreakerConfig);
 
     // Set up circuit breaker event handling
-    this.circuitBreaker.setEventCallback((event, stats) => {
+    this.circuitBreaker.setEventCallback((event, _stats) => {
       if (event === 'OPEN' && this.config.automaticRecovery) {
         this.scheduleAutomaticRecovery();
       }
@@ -310,11 +311,11 @@ export class ErrorRecoveryService {
         const error: TranscriptionError = {
           name: 'TranscriptionError',
           message: 'Operation rejected by circuit breaker',
-          type: 'SERVICE_UNAVAILABLE' as any,
+          type: 'SERVICE_UNAVAILABLE' as TranscriptionErrorType,
           category: ErrorCategory.SERVICE,
           retryable: true,
-          retryStrategy: 'none' as any,
-          severity: 'medium' as any,
+          retryStrategy: 'none' as RetryStrategy,
+          severity: 'medium' as ErrorSeverity,
           timestamp: new Date(),
           notifyUser: false,
         };
@@ -365,7 +366,7 @@ export class ErrorRecoveryService {
     error: TranscriptionError,
     classification: ErrorClassification,
     strategy: RecoveryStrategy,
-    context?: Record<string, unknown>,
+    _context?: Record<string, unknown>,
   ): Promise<RecoveryAttemptResult> {
     const startTime = Date.now();
     this.recoveryStats.totalAttempts++;
@@ -439,9 +440,9 @@ export class ErrorRecoveryService {
    * Execute immediate retry strategy
    */
   private async executeImmediateRetry(
-    job: TranscriptionJob,
-    error: TranscriptionError,
-    classification: ErrorClassification,
+    _job: TranscriptionJob,
+    _error: TranscriptionError,
+    _classification: ErrorClassification,
   ): Promise<RecoveryAttemptResult> {
     // Implementation would depend on the specific operation
     // For now, return a placeholder result
@@ -462,8 +463,8 @@ export class ErrorRecoveryService {
    */
   private async executeDelayedRetry(
     job: TranscriptionJob,
-    error: TranscriptionError,
-    classification: ErrorClassification,
+    _error: TranscriptionError,
+    _classification: ErrorClassification,
   ): Promise<RecoveryAttemptResult> {
     // Schedule job for later retry
     const retryAfter = new Date(Date.now() + this.config.recoveryDelay);
@@ -492,9 +493,9 @@ export class ErrorRecoveryService {
    * Execute circuit breaker recovery
    */
   private async executeCircuitBreakerRecovery(
-    job: TranscriptionJob,
-    error: TranscriptionError,
-    classification: ErrorClassification,
+    _job: TranscriptionJob,
+    _error: TranscriptionError,
+    _classification: ErrorClassification,
   ): Promise<RecoveryAttemptResult> {
     // Circuit breaker will handle the recovery automatically
     // We just need to wait for it to transition to half-open state
@@ -537,9 +538,9 @@ export class ErrorRecoveryService {
    * Execute graceful degradation strategy
    */
   private executeGracefulDegradation(
-    job: TranscriptionJob,
-    error: TranscriptionError,
-    classification: ErrorClassification,
+    _job: TranscriptionJob,
+    _error: TranscriptionError,
+    _classification: ErrorClassification,
   ): RecoveryAttemptResult {
     return {
       success: false,

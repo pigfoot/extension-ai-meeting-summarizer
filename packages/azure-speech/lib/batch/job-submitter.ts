@@ -5,7 +5,7 @@
  */
 
 import { JobValidator } from './job-validator';
-import type { JobValidationResult } from './job-validator';
+import type { JobValidationResult as _JobValidationResult } from './job-validator';
 import type { AuthConfig } from '../types/auth';
 import type {
   TranscriptionJob,
@@ -137,69 +137,65 @@ const BATCH_TRANSCRIPTION_ENDPOINTS: Record<AzureRegion, string> = {
 /**
  * Create job submission error
  */
-function createSubmissionError(
+const createSubmissionError = (
   type: JobSubmissionErrorType,
   message: string,
   statusCode?: number,
   retryable: boolean = false,
   retryAfter?: number,
   azureError?: ErrorDetails,
-): JobSubmissionError {
-  return {
-    type,
-    message,
-    retryable,
-    timestamp: new Date(),
-    ...(statusCode !== undefined && { statusCode }),
-    ...(azureError && { azureError }),
-    ...(retryAfter !== undefined && { retryAfter }),
-  };
-}
+): JobSubmissionError => ({
+  type,
+  message,
+  retryable,
+  timestamp: new Date(),
+  ...(statusCode !== undefined && { statusCode }),
+  ...(azureError && { azureError }),
+  ...(retryAfter !== undefined && { retryAfter }),
+});
 
 /**
  * Calculate exponential backoff delay
  */
-function calculateBackoffDelay(attempt: number, baseDelay: number, maxDelay: number): number {
+const calculateBackoffDelay = (attempt: number, baseDelay: number, maxDelay: number): number => {
   const delay = baseDelay * Math.pow(2, attempt - 1);
   const jitter = Math.random() * 0.1 * delay;
   return Math.min(delay + jitter, maxDelay);
-}
+};
 
 /**
  * Generate unique job ID
  */
-function generateJobId(prefix: string = 'job'): string {
+const generateJobId = (prefix: string = 'job'): string => {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
   return `${prefix}-${timestamp}-${random}`;
-}
+};
 
 /**
  * Convert transcription config to Azure batch config
  */
-function createBatchConfig(
+const createBatchConfig = (
   audioUrl: string,
   config: TranscriptionConfig,
   displayName?: string,
-): BatchTranscriptionConfig {
-  return {
-    audioUrl,
-    language: config.language,
-    displayName: displayName || `Transcription ${new Date().toISOString()}`,
-    description: `Meeting transcription job created at ${new Date().toISOString()}`,
-    properties: {
-      diarizationEnabled: config.enableSpeakerDiarization,
-      profanityFilterMode: config.enableProfanityFilter ? 'Masked' : 'None',
-      punctuationMode: 'DictatedAndAutomatic',
-      wordLevelTimestampsEnabled: true,
-    },
-  };
-}
+): BatchTranscriptionConfig => ({
+  audioUrl,
+  language: config.language,
+  displayName: displayName || `Transcription ${new Date().toISOString()}`,
+  description: `Meeting transcription job created at ${new Date().toISOString()}`,
+  properties: {
+    diarizationEnabled: config.enableSpeakerDiarization,
+    profanityFilterMode: config.enableProfanityFilter ? 'Masked' : 'None',
+    punctuationMode: 'DictatedAndAutomatic',
+    wordLevelTimestampsEnabled: true,
+  },
+});
 
 /**
  * Map Azure job status to our job status
  */
-function mapAzureJobStatus(azureStatus: BatchJobStatus): TranscriptionJob['status'] {
+const mapAzureJobStatus = (azureStatus: BatchJobStatus): TranscriptionJob['status'] => {
   switch (azureStatus) {
     case 'NotStarted':
       return 'submitted';
@@ -214,7 +210,7 @@ function mapAzureJobStatus(azureStatus: BatchJobStatus): TranscriptionJob['statu
     default:
       return 'submitted';
   }
-}
+};
 
 /**
  * Azure Speech batch transcription job submitter
@@ -402,12 +398,13 @@ export class JobSubmitter {
           case 403:
             errorType = 'AUTHENTICATION_ERROR';
             break;
-          case 429:
+          case 429: {
             errorType = 'QUOTA_EXCEEDED';
             retryable = true;
             const retryHeader = response.headers.get('retry-after');
             retryAfter = retryHeader ? parseInt(retryHeader, 10) * 1000 : 60000;
             break;
+          }
           case 503:
             errorType = 'SERVICE_UNAVAILABLE';
             retryable = true;

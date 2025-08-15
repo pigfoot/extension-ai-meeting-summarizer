@@ -175,7 +175,7 @@ export class AzureSpeechRateLimiter {
   /**
    * Mark request as completed
    */
-  completeRequest(requestId: string): void {
+  completeRequest(_requestId: string): void {
     this.activeConcurrentRequests = Math.max(0, this.activeConcurrentRequests - 1);
     this.stats.activeConcurrentRequests = this.activeConcurrentRequests;
   }
@@ -252,7 +252,7 @@ export class AzureSpeechRateLimiter {
   /**
    * Check if request can be processed immediately
    */
-  private canProcessImmediately(metadata: RequestMetadata): boolean {
+  private canProcessImmediately(_metadata: RequestMetadata): boolean {
     // Check concurrent request limit
     if (this.activeConcurrentRequests >= this.config.maxConcurrentRequests) {
       return false;
@@ -439,19 +439,19 @@ let globalRateLimiter: AzureSpeechRateLimiter | undefined;
 /**
  * Get or create global rate limiter instance
  */
-export function getRateLimiter(config?: Partial<RateLimiterConfig>): AzureSpeechRateLimiter {
+export const getRateLimiter = (config?: Partial<RateLimiterConfig>): AzureSpeechRateLimiter => {
   if (!globalRateLimiter) {
     globalRateLimiter = new AzureSpeechRateLimiter(config);
   }
   return globalRateLimiter;
-}
+};
 
 /**
  * Reset global rate limiter
  */
-export function resetGlobalRateLimiter(): void {
+export const resetGlobalRateLimiter = (): void => {
   globalRateLimiter = undefined;
-}
+};
 
 /**
  * Rate limiter utility functions

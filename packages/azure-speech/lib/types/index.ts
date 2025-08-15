@@ -408,12 +408,10 @@ export interface SpeechServiceMetrics {
 }
 
 // Export error types
+export { ErrorCategory, TranscriptionErrorType, RetryStrategy, ErrorSeverity } from './errors';
+
 export type {
   TranscriptionError,
-  ErrorCategory,
-  TranscriptionErrorType,
-  RetryStrategy,
-  ErrorSeverity,
   ErrorRecoveryConfig,
   ErrorRecoveryRule,
   CircuitBreakerState,

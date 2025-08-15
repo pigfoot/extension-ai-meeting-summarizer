@@ -188,7 +188,7 @@ export interface BatchOperationsConfig {
 /**
  * Pending batch context
  */
-interface PendingBatch {
+interface _PendingBatch {
   /** Batch identifier */
   batchId: string;
   /** Operations in batch */
@@ -358,7 +358,7 @@ export class BatchOperationsManager {
     operations: BatchOperation[],
     options: BatchTransactionOptions,
   ): Promise<BatchExecutionResult> {
-    const startTime = Date.now();
+    const _startTime = Date.now();
 
     // Check if batch is already being executed
     if (this.activeBatches.has(batchId)) {
@@ -593,7 +593,7 @@ export class BatchOperationsManager {
    */
   private async executeSequentialBatch(
     operations: BatchOperation[],
-    options: BatchTransactionOptions,
+    _options: BatchTransactionOptions,
   ): Promise<BatchOperationResult[]> {
     const results: BatchOperationResult[] = [];
 
@@ -823,7 +823,7 @@ export class BatchOperationsManager {
 
     // Update performance by type
     for (const opResult of result.results) {
-      const operation = opResult.operationId;
+      const _operation = opResult.operationId;
       // This is simplified - in a real implementation you'd track the operation type
       const type: BatchOperationType = 'write'; // Placeholder
 

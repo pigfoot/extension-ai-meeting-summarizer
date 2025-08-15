@@ -317,7 +317,7 @@ export class CacheIntegrityChecker {
               failedChecks++;
               failedKeys.push(key);
             }
-          } catch (error) {
+          } catch (_error) {
             failedChecks++;
             failedKeys.push(key);
           }

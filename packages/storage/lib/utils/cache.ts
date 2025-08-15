@@ -575,25 +575,22 @@ export class TranscriptionLRUCache {
 /**
  * Set debug information for cache operations
  */
-export function setDebugInfo(info: unknown): void {
+export const setDebugInfo = (info: unknown): void => {
   if (typeof globalThis !== 'undefined') {
-    (globalThis as any).__CACHE_DEBUG__ = info;
+    (globalThis as { __CACHE_DEBUG__?: unknown }).__CACHE_DEBUG__ = info;
   }
-}
+};
 
 /**
  * Create an update value function
  */
-export function createUpdateValue<T>(value: T): T {
-  return value;
-}
+export const createUpdateValue = <T>(value: T): T => value;
 
 /**
  * Create an update value or function
  */
-export function createUpdateValueOrFunction<T>(valueOrFunction: T | ((prev: T) => T)): T | ((prev: T) => T) {
-  return valueOrFunction;
-}
+export const createUpdateValueOrFunction = <T>(valueOrFunction: T | ((prev: T) => T)): T | ((prev: T) => T) =>
+  valueOrFunction;
 
 /**
  * Cache utilities for storage integration

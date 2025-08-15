@@ -12,11 +12,9 @@ import type {
   SecureConfigRecord,
   ValidationResult,
   UserPreferences,
-  EncryptionMetadata,
   BackupMetadata,
   ConfigHistoryEntry,
 } from '../types/config';
-import type { EncryptionResult, DecryptionResult } from '../utils/encryption';
 
 /**
  * Secure configuration storage options
@@ -955,7 +953,7 @@ export class SecureConfigStorage {
     try {
       // This would load from a separate storage key in a real implementation
       this.configHistory = [];
-    } catch (error) {
+    } catch (_error) {
       console.debug('No configuration history found');
       this.configHistory = [];
     }

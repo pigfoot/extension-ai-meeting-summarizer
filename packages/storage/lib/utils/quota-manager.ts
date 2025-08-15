@@ -1076,7 +1076,7 @@ export class StorageQuotaManager {
   /**
    * Get recommendation (placeholder for real implementation)
    */
-  private async getRecommendation(id: string): Promise<CleanupRecommendation | null> {
+  private async getRecommendation(_id: string): Promise<CleanupRecommendation | null> {
     // In a real implementation, this would retrieve stored recommendations
     return null;
   }

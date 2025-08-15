@@ -4,18 +4,8 @@
  * for authentication failures with graceful degradation
  */
 
-import { CredentialValidator } from './credential-validator';
 import type { AuthenticationHandler } from './auth-handler';
-import type {
-  AuthConfig,
-  AuthenticationError,
-  AuthenticationErrorType,
-  AuthenticationEvent,
-  AuthenticationStatus,
-  CredentialValidationResult,
-  TokenRefreshResult,
-  HealthCheckResult,
-} from '../types/auth';
+import type { AuthenticationError, AuthenticationErrorType } from '../types/auth';
 
 /**
  * Recovery strategy types
@@ -249,23 +239,23 @@ const DEFAULT_RECOVERY_STRATEGIES: RecoveryStrategy[] = [
 /**
  * Calculate exponential backoff delay
  */
-function calculateBackoffDelay(attempt: number, baseDelay: number, maxDelay: number): number {
+const calculateBackoffDelay = (attempt: number, baseDelay: number, maxDelay: number): number => {
   const delay = baseDelay * Math.pow(2, attempt - 1);
   const jitter = Math.random() * 0.1 * delay;
   return Math.min(delay + jitter, maxDelay);
-}
+};
 
 /**
  * Create user notification
  */
-function createNotification(
+const createNotification = (
   type: NotificationType,
   title: string,
   message: string,
   priority: UserNotification['priority'] = 'medium',
   actions?: UserNotification['actions'],
   timeout?: number,
-): UserNotification {
+): UserNotification => {
   const notification: UserNotification = {
     id: crypto.randomUUID(),
     type,
@@ -284,7 +274,7 @@ function createNotification(
   }
 
   return notification;
-}
+};
 
 /**
  * Authentication error recovery system
@@ -533,14 +523,15 @@ export class AuthErrorRecovery {
             performedActions.push(action);
             break;
 
-          case 'NOTIFY_USER':
+          case 'NOTIFY_USER': {
             const notification = this.createErrorNotification(error, context);
             notifications.push(notification);
             this.sendNotification(notification);
             performedActions.push(action);
             break;
+          }
 
-          case 'ENABLE_FALLBACK':
+          case 'ENABLE_FALLBACK': {
             this.fallbackModeEnabled = true;
             const fallbackNotification = createNotification(
               'WARNING',
@@ -552,6 +543,7 @@ export class AuthErrorRecovery {
             this.sendNotification(fallbackNotification);
             performedActions.push(action);
             break;
+          }
 
           case 'CLEAR_CACHE':
             // Clear any cached credentials or tokens
@@ -600,7 +592,7 @@ export class AuthErrorRecovery {
   /**
    * Create error notification
    */
-  private createErrorNotification(error: AuthenticationError, context?: Record<string, unknown>): UserNotification {
+  private createErrorNotification(error: AuthenticationError, _context?: Record<string, unknown>): UserNotification {
     let title: string;
     let message: string;
     let priority: UserNotification['priority'];

@@ -5,7 +5,6 @@
 
 import type {
   SyncStatus,
-  SyncMetrics,
   SyncMonitorConfig,
   SyncHealthStatus,
   SyncNotification,
@@ -721,7 +720,7 @@ export class SyncStatusMonitor {
   private setupNetworkMonitoring(): void {
     // Update connection quality
     const updateConnectionQuality = () => {
-      const connection = (navigator as any).connection;
+      const connection = (navigator as { connection?: { effectiveType?: string; rtt?: number } }).connection;
       const online = navigator.onLine;
 
       let quality: ConnectionQuality['level'] = 'offline';
@@ -768,11 +767,11 @@ export class SyncStatusMonitor {
         score,
         details: {
           online,
-          type: connection?.type || 'unknown',
+          type: 'unknown',
           effectiveType: connection?.effectiveType || 'unknown',
           rtt: connection?.rtt || 0,
-          downlink: connection?.downlink || 0,
-          saveData: connection?.saveData || false,
+          downlink: 0,
+          saveData: false,
         },
         timestamp: new Date().toISOString(),
       };
@@ -793,7 +792,9 @@ export class SyncStatusMonitor {
 
     // Monitor connection changes
     if ('connection' in navigator) {
-      (navigator as any).connection.addEventListener('change', updateConnectionQuality);
+      (
+        navigator as { connection: { addEventListener: (event: string, handler: () => void) => void } }
+      ).connection.addEventListener('change', updateConnectionQuality);
     }
   }
 

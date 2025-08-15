@@ -147,7 +147,7 @@ const STRATEGY_CONFIGS: Record<RetryStrategy, Partial<RetryConfig>> = {
 /**
  * Calculate retry delay based on strategy
  */
-function calculateDelay(attemptNumber: number, strategy: RetryStrategy, config: RetryConfig): number {
+const calculateDelay = (attemptNumber: number, strategy: RetryStrategy, config: RetryConfig): number => {
   if (strategy === RetryStrategy.NONE || attemptNumber <= 1) {
     return 0;
   }
@@ -174,16 +174,16 @@ function calculateDelay(attemptNumber: number, strategy: RetryStrategy, config: 
 
   // Cap at maximum delay
   return Math.min(Math.max(delay, 0), config.maxDelay);
-}
+};
 
 /**
  * Check if error should be retried
  */
-function shouldRetry(
+const shouldRetry = (
   error: Error,
   attemptNumber: number,
   config: RetryConfig,
-): { shouldRetry: boolean; classification: ErrorClassification } {
+): { shouldRetry: boolean; classification: ErrorClassification } => {
   const classification = ErrorClassifier.classifyError(error);
 
   // Check if we've exceeded max attempts
@@ -202,12 +202,12 @@ function shouldRetry(
   }
 
   return { shouldRetry: true, classification };
-}
+};
 
 /**
  * Create abort signal with timeout
  */
-function createTimeoutSignal(timeoutMs: number, parentSignal?: AbortSignal): AbortSignal {
+const createTimeoutSignal = (timeoutMs: number, parentSignal?: AbortSignal): AbortSignal => {
   const controller = new AbortController();
 
   // Handle parent signal abortion
@@ -243,7 +243,7 @@ function createTimeoutSignal(timeoutMs: number, parentSignal?: AbortSignal): Abo
   );
 
   return controller.signal;
-}
+};
 
 /**
  * Azure Speech retry manager
