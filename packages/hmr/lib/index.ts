@@ -16,14 +16,15 @@ declare global {
 }
 
 // Export existing HMR functionality
-export * from './plugins/index.js';
-export * from './initializers/init-client.js';
-export type * from './initializers/init-reload-server.js';
-export type * from './injections/refresh.js';
-export type * from './injections/reload.js';
-export * from './interpreter/index.js';
-export * from './consts.js';
-export type * from './types.js';
+export * from './plugins/index';
+export { default as initClient } from './initializers/init-client';
+// Note: These modules are IIFE and don't export anything
+// export { default as initReloadServer } from './initializers/init-reload-server';
+// export { default as refresh } from './injections/refresh';
+// export { default as reload } from './injections/reload';
+export { default as MessageInterpreter } from './interpreter/index';
+export * from './consts';
+export type * from './types';
 
 /**
  * Meeting-specific HMR configuration and utilities

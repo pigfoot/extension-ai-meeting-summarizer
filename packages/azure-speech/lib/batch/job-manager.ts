@@ -9,15 +9,14 @@ import { JobValidator } from './job-validator';
 import { ProgressMonitor } from './progress-monitor';
 import { ResultRetriever } from './result-retriever';
 import { ErrorRecoveryService } from '../errors/recovery-service';
+import { ErrorCategory, TranscriptionErrorType, RetryStrategy, ErrorSeverity } from '../types/errors';
 import type { AuthConfig } from '../types/auth';
 import type {
   TranscriptionJob,
   TranscriptionResult,
-  BatchTranscriptionJob,
   BatchTranscriptionConfig,
   TranscriptionJobStatus,
   CreateTranscriptionJobRequest,
-  AzureRegion,
 } from '../types/index';
 
 /**
@@ -743,11 +742,15 @@ export class JobManager {
       try {
         await this.errorRecovery.handleJobFailure(managedJob.job, {
           name: 'TranscriptionError',
+          type: TranscriptionErrorType.UNKNOWN_ERROR,
           message: error.message,
-          category: 'UNKNOWN',
+          category: ErrorCategory.UNKNOWN,
           retryable: false,
+          retryStrategy: RetryStrategy.NONE,
+          severity: ErrorSeverity.HIGH,
+          notifyUser: false,
           timestamp: new Date(),
-        } as any);
+        });
       } catch (recoveryError) {
         console.error('Error recovery failed:', recoveryError);
       }
@@ -776,7 +779,6 @@ export class JobManager {
     switch (managedJob.status.current) {
       case 'pending':
         return 0;
-      case 'processing':
       case 'submitted':
         return 25;
       case 'processing':

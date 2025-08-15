@@ -9,10 +9,11 @@ import { TokenManager } from './token-manager';
 import type {
   AuthConfig,
   AuthenticationState,
-  AuthenticationStatus,
   AuthenticationError,
+  AuthenticationErrorType,
   AuthenticationEvent,
-  AuthManagerConfig,
+  AuthenticationEventType,
+  AuthenticationStatus,
   CredentialValidationResult,
   TokenRefreshResult,
   TokenInfo,
@@ -69,27 +70,25 @@ type AuthEventListener = (event: AuthenticationEvent) => void;
 /**
  * Create authentication error
  */
-function createAuthError(type: string, message: string, retryable: boolean = false): AuthenticationError {
-  return {
-    type: type as any,
-    message,
-    retryable,
-    timestamp: new Date(),
-    details: {},
-  };
-}
+const createAuthError = (type: string, message: string, retryable: boolean = false): AuthenticationError => ({
+  type: type as AuthenticationErrorType,
+  message,
+  retryable,
+  timestamp: new Date(),
+  details: {},
+});
 
 /**
  * Create authentication event
  */
-function createAuthEvent(
+const createAuthEvent = (
   type: string,
   message: string,
   metadata?: Record<string, unknown>,
   error?: AuthenticationError,
-): AuthenticationEvent {
+): AuthenticationEvent => {
   const event: AuthenticationEvent = {
-    type: type as any,
+    type: type as AuthenticationEventType,
     timestamp: new Date(),
     message,
     context: {
@@ -107,7 +106,7 @@ function createAuthEvent(
   }
 
   return event;
-}
+};
 
 /**
  * Azure Speech API authentication handler
@@ -518,16 +517,17 @@ export class AuthenticationHandler {
   private handleTokenEvent(event: AuthenticationEvent): void {
     // Update authentication state based on token events
     switch (event.type) {
-      case 'token_refresh_success':
+      case 'token_refresh_success': {
         const token = this.tokenManager?.getCurrentToken();
         this.updateAuthState({
           status: 'authenticated',
           ...(token && { tokenInfo: token }),
         });
         break;
+      }
 
       case 'token_refresh_failure':
-        this.lastError = event.error || createAuthError('TOKEN_REFRESH_FAILED', 'Token refresh failed');
+        this.lastError = event.error ?? createAuthError('TOKEN_REFRESH_FAILED', 'Token refresh failed');
         this.updateAuthState({
           status: 'error',
           lastError: this.lastError,

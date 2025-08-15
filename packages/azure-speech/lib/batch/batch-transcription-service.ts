@@ -7,16 +7,14 @@
 import { JobManager } from './job-manager';
 import { AuthenticationHandler } from '../auth/auth-handler';
 import { ErrorRecoveryService } from '../errors/recovery-service';
-import type { JobManagerConfig, JobPriority, JobQueueEventCallback } from './job-manager';
+import type { JobManagerConfig, JobPriority } from './job-manager';
 import type { AuthConfig } from '../types/auth';
 import type {
-  TranscriptionJob,
   TranscriptionResult,
-  BatchTranscriptionJob,
   BatchTranscriptionConfig,
   CreateTranscriptionJobRequest,
   TranscriptionJobStatus,
-  AzureRegion,
+  TranscriptionJob,
 } from '../types/index';
 
 /**
@@ -124,7 +122,7 @@ export type ServiceEventCallback = (
     jobIds?: string[];
     batchResult?: BatchOperationResult;
     health?: ServiceHealthStatus;
-    metrics?: any;
+    metrics?: ServiceMetrics;
     error?: Error;
   },
 ) => void;
@@ -516,7 +514,7 @@ export class BatchTranscriptionService {
     progress?: number;
     result?: TranscriptionResult;
     error?: string;
-    timing?: any;
+    timing?: Record<string, unknown>;
   } {
     return this.jobManager.getJobStatus(jobId);
   }
@@ -602,7 +600,7 @@ export class BatchTranscriptionService {
   /**
    * Get all job details
    */
-  getAllJobs(): Array<{ jobId: string; status: TranscriptionJobStatus; details: any }> {
+  getAllJobs(): Array<{ jobId: string; status: TranscriptionJobStatus; details: Record<string, unknown> }> {
     const allStatuses: TranscriptionJobStatus[] = [
       'pending',
       'submitted',
@@ -611,14 +609,14 @@ export class BatchTranscriptionService {
       'failed',
       'cancelled',
     ];
-    const allJobs: Array<{ jobId: string; status: TranscriptionJobStatus; details: any }> = [];
+    const allJobs: Array<{ jobId: string; status: TranscriptionJobStatus; details: Record<string, unknown> }> = [];
 
     for (const status of allStatuses) {
       const jobIds = this.getJobsByStatus(status);
       for (const jobId of jobIds) {
         const details = this.jobManager.getJobDetails(jobId);
         if (details) {
-          allJobs.push({ jobId, status, details });
+          allJobs.push({ jobId, status, details: details as unknown as Record<string, unknown> });
         }
       }
     }
