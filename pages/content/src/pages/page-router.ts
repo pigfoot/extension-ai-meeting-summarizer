@@ -493,7 +493,6 @@ export class PageRouter {
       this.currentHandler = new registration.handler();
       this.currentPageType = detection.pageType;
 
-      console.log(`Routing to ${detection.pageType} handler (confidence: ${detection.confidence.toFixed(2)})`);
 
       // Initialize handler
       const context = await this.currentHandler.initialize();
@@ -589,7 +588,6 @@ export class PageRouter {
     const hasChanged = await this.hasPageChanged();
 
     if (hasChanged) {
-      console.log('Page change detected, re-routing handler');
       return this.routeToHandler();
     }
 

@@ -318,9 +318,17 @@ export class StartupManager {
     metrics.lastUpdated = new Date().toISOString();
 
     // Get memory usage if available
-    if ('performance' in globalThis && 'memory' in performance) {
-      const memory = (performance as { memory: { usedJSHeapSize: number } }).memory;
-      metrics.memoryUsageMB = memory.usedJSHeapSize / 1024 / 1024;
+    if (typeof performance !== 'undefined' && performance && 'memory' in performance) {
+      try {
+        const memory = (performance as { memory: { usedJSHeapSize: number } }).memory;
+        if (memory && typeof memory.usedJSHeapSize === 'number') {
+          metrics.memoryUsageMB = memory.usedJSHeapSize / 1024 / 1024;
+        }
+      } catch (error) {
+        console.debug('[StartupManager] Failed to read memory usage:', error);
+        // Use default value
+        metrics.memoryUsageMB = 0;
+      }
     }
 
     // Update other metrics would require integration with:

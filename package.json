@@ -1,7 +1,7 @@
 {
-  "name": "chrome-extension-boilerplate-react-vite",
-  "version": "0.5.0",
-  "description": "chrome extension boilerplate",
+  "name": "ai-meeting-summarizer",
+  "version": "0.0.1",
+  "description": "Deca'AI Meeting Summarizer browser extension",
   "license": "MIT",
   "private": true,
   "sideEffects": false,

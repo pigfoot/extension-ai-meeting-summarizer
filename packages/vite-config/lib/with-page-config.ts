@@ -14,15 +14,26 @@ export const watchOption = IS_DEV
     }
   : undefined;
 
-export const withPageConfig = (config: UserConfig) =>
-  defineConfig(
+export interface WithPageConfigOptions {
+  /** Exclude watchRebuildPlugin (useful for content scripts with custom HMR) */
+  excludeWatchRebuildPlugin?: boolean;
+}
+
+export const withPageConfig = (config: UserConfig, options?: WithPageConfigOptions) => {
+  const { excludeWatchRebuildPlugin = false } = options || {};
+  
+  return defineConfig(
     deepmerge(
       {
         define: {
           'process.env': env,
         },
         base: '',
-        plugins: [react(), IS_DEV && watchRebuildPlugin({ refresh: true }), nodePolyfills()],
+        plugins: [
+          react(), 
+          IS_DEV && !excludeWatchRebuildPlugin && watchRebuildPlugin({ refresh: true }), 
+          nodePolyfills()
+        ].filter(Boolean),
         build: {
           sourcemap: IS_DEV,
           minify: IS_PROD,
@@ -37,3 +48,4 @@ export const withPageConfig = (config: UserConfig) =>
       config,
     ),
   );
+};

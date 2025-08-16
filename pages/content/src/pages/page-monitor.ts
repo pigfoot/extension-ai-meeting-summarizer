@@ -169,7 +169,6 @@ export class PageMonitor {
     this.statistics.status = 'active';
     this.statistics.startTime = new Date();
 
-    console.log('Starting page monitoring...');
 
     // Start navigation monitoring
     if (this.config.monitorNavigation) {
@@ -196,7 +195,6 @@ export class PageMonitor {
     this.isMonitoring = false;
     this.statistics.status = 'stopped';
 
-    console.log('Stopping page monitoring...');
 
     // Stop mutation observer
     mutationObserver.stopMonitoring();
@@ -258,7 +256,6 @@ export class PageMonitor {
    * Force re-initialization
    */
   async forceReinitialization(): Promise<PageIntegrationContext | null> {
-    console.log('Forcing page re-initialization...');
     return this.handleReinitialization('manual-trigger');
   }
 
@@ -415,7 +412,6 @@ export class PageMonitor {
     this.statistics.navigationChanges++;
     this.statistics.lastActivity = new Date();
 
-    console.log('Navigation change detected:', change);
 
     // Notify callbacks
     this.navigationCallbacks.forEach(callback => {
@@ -674,7 +670,6 @@ export class PageMonitor {
    */
   private handleContentDetection(content: unknown[]): void {
     if (content.length > 0) {
-      console.log('New meeting content detected:', content.length, 'items');
 
       // Create content change for new meeting content
       const contentChange: ContentChange = {
@@ -729,14 +724,12 @@ export class PageMonitor {
       this.reinitAttempts++;
       this.statistics.reinitializations++;
 
-      console.log(`Re-initializing page handler (reason: ${reason}, attempt: ${this.reinitAttempts})`);
 
       // Use page router to handle re-initialization
       const context = await pageRouter.handlePageChange();
 
       if (context) {
         this.reinitAttempts = 0; // Reset on success
-        console.log('Page re-initialization successful');
       } else {
         console.warn('Page re-initialization returned null context');
       }
@@ -775,7 +768,6 @@ export class PageMonitor {
       // Check if page type has changed
       const hasChanged = await pageRouter.hasPageChanged();
       if (hasChanged) {
-        console.log('Page type change detected during validation');
         await this.scheduleReinitialization('page-type-change');
       }
     } catch (error) {

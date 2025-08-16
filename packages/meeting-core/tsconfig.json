@@ -1,55 +1,8 @@
 {
-  "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "Meeting Core Package",
-  "extends": "../tsconfig/base.json",
+  "extends": "@extension/tsconfig/module",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "lib",
-    "noEmit": false,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "removeComments": false,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "importHelpers": true,
-    "composite": true,
-    "incremental": true,
-    "tsBuildInfoFile": "dist/.tsbuildinfo",
     "baseUrl": ".",
-    "paths": {
-      "@extension/shared": ["../shared/lib/index.ts"],
-      "@extension/shared/*": ["../shared/lib/*"],
-      "@extension/storage": ["../storage/lib/index.ts"],
-      "@extension/storage/*": ["../storage/lib/*"],
-      "@extension/ui": ["../ui/lib/index.ts"],
-      "@extension/ui/*": ["../ui/lib/*"]
-    }
+    "outDir": "dist"
   },
-  "include": [
-    "lib/**/*.ts",
-    "lib/**/*.tsx",
-    "lib/**/*.js",
-    "lib/**/*.jsx"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/*.spec.ts",
-    "**/*.spec.tsx",
-    "**/*.stories.ts",
-    "**/*.stories.tsx",
-    "**/__tests__/**",
-    "**/__mocks__/**"
-  ],
-  "references": [
-    {
-      "path": "../shared"
-    },
-    {
-      "path": "../storage"
-    }
-  ]
+  "include": ["index.mts", "lib"]
 }

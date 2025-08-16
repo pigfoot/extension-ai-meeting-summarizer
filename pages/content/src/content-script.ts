@@ -706,7 +706,6 @@ export class ContentScript {
    */
   private log(message: string): void {
     if (this.config.enableDebugLogging) {
-      console.log(`[ContentScript] ${message}`);
     }
   }
 }
@@ -779,6 +778,196 @@ if (process.env.NODE_ENV === 'development') {
   }
   (window as WindowWithDebug).contentScript = contentScript;
   (window as WindowWithDebug).contentScriptUtils = contentScriptUtils;
+}
+
+// Setup message handling for background service communication
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+
+  if (message.type === 'DETECT_MEETING_CONTENT') {
+    // Handle content detection request
+    handleContentDetection(message, sender, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle other message types if needed
+  return false;
+});
+
+/**
+ * Handle content detection request from background service
+ */
+async function handleContentDetection(message: any, sender: any, sendResponse: (response: any) => void) {
+  try {
+
+    // Ensure content script is initialized
+    if (!contentScript.isReady()) {
+      await contentScript.initialize();
+    }
+
+    // Use content analyzer to detect meeting content
+    const analysis = await contentAnalyzer.analyzeContent();
+
+
+    // Check if this is a meeting page with sufficient confidence
+    if (analysis.meetingConfidence < 0.3) {
+      sendResponse({
+        success: false,
+        error: 'Page does not appear to contain meeting content',
+        details: 'Content analysis indicates low meeting confidence',
+        analysis: analysis,
+      });
+      return;
+    }
+
+    // Try to detect audio/video URLs using the content analyzer
+    // For SharePoint pages, we need to look for Stream video URLs
+    const audioUrls = await detectMediaUrls();
+
+    if (!audioUrls || audioUrls.length === 0) {
+      sendResponse({
+        success: false,
+        error: 'No meeting recordings found on current page',
+        details: 'Could not detect any audio or video content URLs',
+        analysis: analysis,
+      });
+      return;
+    }
+
+    // Extract meeting metadata
+    const metadata = extractMeetingMetadata();
+
+    // Success response
+    sendResponse({
+      success: true,
+      audioUrls: audioUrls,
+      metadata: metadata,
+      analysis: analysis,
+      pageInfo: {
+        url: window.location.href,
+        title: document.title,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('[ContentScript] Content detection error:', error);
+
+    sendResponse({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      details: 'Exception thrown during content detection',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+  }
+}
+
+/**
+ * Detect media URLs on the current page
+ */
+async function detectMediaUrls(): Promise<string[]> {
+  const mediaUrls: string[] = [];
+
+  try {
+    // Look for SharePoint Stream video URLs
+    const videoElements = document.querySelectorAll('video[src], video source[src]');
+    videoElements.forEach(element => {
+      const src = element.getAttribute('src');
+      if (src && (src.includes('.mp4') || src.includes('.webm') || src.includes('stream'))) {
+        mediaUrls.push(src);
+      }
+    });
+
+    // Look for audio elements
+    const audioElements = document.querySelectorAll('audio[src], audio source[src]');
+    audioElements.forEach(element => {
+      const src = element.getAttribute('src');
+      if (src && (src.includes('.mp3') || src.includes('.wav') || src.includes('.m4a'))) {
+        mediaUrls.push(src);
+      }
+    });
+
+    // Look for SharePoint-specific patterns in the page
+    const scripts = document.querySelectorAll('script');
+    scripts.forEach(script => {
+      if (script.textContent) {
+        // Look for Stream URLs in JavaScript
+        const streamMatches = script.textContent.match(/https:\/\/[^"'\s]*\.mp4[^"'\s]*/g);
+        if (streamMatches) {
+          streamMatches.forEach(url => {
+            if (!mediaUrls.includes(url)) {
+              mediaUrls.push(url);
+            }
+          });
+        }
+      }
+    });
+
+    // Look for data attributes and hidden inputs that might contain media URLs
+    const mediaInputs = document.querySelectorAll('[data-video-url], [data-audio-url], [data-stream-url]');
+    mediaInputs.forEach(element => {
+      const videoUrl = element.getAttribute('data-video-url');
+      const audioUrl = element.getAttribute('data-audio-url');
+      const streamUrl = element.getAttribute('data-stream-url');
+
+      if (videoUrl && !mediaUrls.includes(videoUrl)) mediaUrls.push(videoUrl);
+      if (audioUrl && !mediaUrls.includes(audioUrl)) mediaUrls.push(audioUrl);
+      if (streamUrl && !mediaUrls.includes(streamUrl)) mediaUrls.push(streamUrl);
+    });
+
+    return mediaUrls;
+  } catch (error) {
+    console.error('[ContentScript] Error detecting media URLs:', error);
+    return [];
+  }
+}
+
+/**
+ * Extract meeting metadata from the current page
+ */
+function extractMeetingMetadata(): any {
+  const metadata: any = {
+    title: document.title,
+    url: window.location.href,
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    // Try to extract meeting title from page content
+    const titleSelectors = ['h1', '[data-automation-id="pageTitle"]', '.ms-DocumentCard-title', '[role="heading"]'];
+
+    for (const selector of titleSelectors) {
+      const titleElement = document.querySelector(selector);
+      if (titleElement && titleElement.textContent) {
+        metadata.meetingTitle = titleElement.textContent.trim();
+        break;
+      }
+    }
+
+    // Try to extract date information
+    const dateElements = document.querySelectorAll('[data-automation-id*="date"], .ms-DatePicker, time');
+    dateElements.forEach(element => {
+      if (element.textContent && element.textContent.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) {
+        metadata.meetingDate = element.textContent.trim();
+      }
+    });
+
+    // Try to extract participant information
+    const participantElements = document.querySelectorAll(
+      '[data-automation-id*="participant"], .ms-Persona-primaryText',
+    );
+    const participants: string[] = [];
+    participantElements.forEach(element => {
+      if (element.textContent) {
+        participants.push(element.textContent.trim());
+      }
+    });
+    if (participants.length > 0) {
+      metadata.participants = participants;
+    }
+  } catch (error) {
+    console.error('[ContentScript] Error extracting metadata:', error);
+  }
+
+  return metadata;
 }
 
 // Automatic cleanup on page unload

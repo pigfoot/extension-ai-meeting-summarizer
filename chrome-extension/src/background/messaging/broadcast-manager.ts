@@ -148,7 +148,6 @@ export class BroadcastManager {
     };
 
     try {
-      console.log(`[BroadcastManager] Broadcasting event: ${event.type}`);
 
       // Create message envelope
       const envelope = this.createBroadcastEnvelope(eventId, event);
@@ -194,9 +193,6 @@ export class BroadcastManager {
       // Store in event history
       this.addToEventHistory(event, result);
 
-      console.log(
-        `[BroadcastManager] Broadcast completed: ${result.componentsReached}/${targets.length} components reached`,
-      );
     } catch (error) {
       result.success = false;
       result.duration = Date.now() - startTime;
@@ -343,9 +339,6 @@ export class BroadcastManager {
         createdAt: new Date().toISOString(),
       });
 
-      console.log(
-        `[BroadcastManager] Subscription created: ${subscription.subscriptionId} for ${subscription.componentId}`,
-      );
 
       return subscription.subscriptionId;
     } catch (error) {
@@ -365,7 +358,6 @@ export class BroadcastManager {
     }
 
     this.subscriptions.delete(subscriptionId);
-    console.log(`[BroadcastManager] Subscription removed: ${subscriptionId}`);
   }
 
   /**
@@ -390,7 +382,6 @@ export class BroadcastManager {
    */
   createBroadcastChannel(config: BroadcastConfig): void {
     this.channels.set(config.channelId, config);
-    console.log(`[BroadcastManager] Broadcast channel created: ${config.channelId}`);
   }
 
   /**
@@ -398,7 +389,6 @@ export class BroadcastManager {
    */
   removeBroadcastChannel(channelId: string): void {
     this.channels.delete(channelId);
-    console.log(`[BroadcastManager] Broadcast channel removed: ${channelId}`);
   }
 
   /**
@@ -407,7 +397,6 @@ export class BroadcastManager {
   clearStats(): void {
     this.stats = this.initializeStats();
     this.eventHistory = [];
-    console.log('[BroadcastManager] Statistics and history cleared');
   }
 
   /**
@@ -570,7 +559,6 @@ export class BroadcastManager {
       // Send through message router
       await this.messageRouter.sendMessage(targetEnvelope);
 
-      console.log(`[BroadcastManager] Delivered to ${target.componentId}`);
     } catch (error) {
       console.error(`[BroadcastManager] Failed to deliver to ${target.componentId}:`, error);
       throw error;

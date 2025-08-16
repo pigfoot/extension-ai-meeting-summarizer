@@ -1,13 +1,8 @@
 {
-  "extends": "@extension/tsconfig/base",
+  "extends": "@extension/tsconfig/module",
   "compilerOptions": {
     "baseUrl": ".",
-    "outDir": "dist",
-    "composite": true,
-    "moduleResolution": "bundler",
-    "module": "ESNext",
-    "allowImportingTsExtensions": false,
-    "noEmit": false
+    "outDir": "dist"
   },
   "include": ["index.mts", "lib"]
 }

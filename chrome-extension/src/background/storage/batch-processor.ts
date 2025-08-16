@@ -1064,11 +1064,11 @@ export class BatchProcessor {
     }
 
     // Schedule immediate processing
-    setImmediate(() => {
+    setTimeout(() => {
       this.processBatch().catch(error => {
         console.error('[BatchProcessor] Batch processing failed:', error);
       });
-    });
+    }, 0);
   }
 
   /**

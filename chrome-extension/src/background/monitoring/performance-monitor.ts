@@ -329,7 +329,6 @@ export class PerformanceMonitor {
     // Clean up old metrics
     this.cleanupOldMetrics();
 
-    console.debug(`[PerformanceMonitor] Metric recorded: ${metric.name} = ${metric.value} ${metric.unit}`);
   }
 
   /**
@@ -364,35 +363,72 @@ export class PerformanceMonitor {
    * Record memory usage metric
    */
   recordMemoryUsage(): void {
-    if ('memory' in performance) {
-      const memoryInfo = (
-        performance as { memory: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }
-      ).memory;
+    if (typeof performance !== 'undefined' && performance && 'memory' in performance) {
+      try {
+        const memoryInfo = (
+          performance as { memory: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }
+        ).memory;
 
-      const memoryStats: MemoryStats = {
-        usedJSHeapSize: memoryInfo.usedJSHeapSize,
-        totalJSHeapSize: memoryInfo.totalJSHeapSize,
-        jsHeapSizeLimit: memoryInfo.jsHeapSizeLimit,
-        usagePercent: (memoryInfo.usedJSHeapSize / memoryInfo.jsHeapSizeLimit) * 100,
-        growthTrend: this.calculateMemoryTrend(memoryInfo.usedJSHeapSize),
-        timestamp: new Date().toISOString(),
-      };
+        if (memoryInfo && typeof memoryInfo.usedJSHeapSize === 'number') {
+          const memoryStats: MemoryStats = {
+            usedJSHeapSize: memoryInfo.usedJSHeapSize,
+            totalJSHeapSize: memoryInfo.totalJSHeapSize,
+            jsHeapSizeLimit: memoryInfo.jsHeapSizeLimit,
+            usagePercent: (memoryInfo.usedJSHeapSize / memoryInfo.jsHeapSizeLimit) * 100,
+            growthTrend: this.calculateMemoryTrend(memoryInfo.usedJSHeapSize),
+            timestamp: new Date().toISOString(),
+          };
 
+          this.recordMetric({
+            type: 'memory',
+            name: 'heap_usage',
+            value: memoryInfo.usedJSHeapSize / (1024 * 1024), // Convert to MB
+            unit: 'MB',
+            tags: {
+              trend: memoryStats.growthTrend,
+            },
+            metadata: {
+              source: 'memory-monitor',
+              context: 'memory_usage',
+            },
+          });
+
+          this.lastMemoryMeasurement = memoryStats;
+        }
+      } catch (error) {
+        console.warn('[PerformanceMonitor] Failed to record memory usage:', error);
+        // Record a default metric instead
+        this.recordMetric({
+          type: 'memory',
+          name: 'heap_usage',
+          value: 0,
+          unit: 'MB',
+          tags: {
+            trend: 'stable',
+            fallback: 'true',
+          },
+          metadata: {
+            source: 'memory-monitor',
+            context: 'memory_usage_fallback',
+          },
+        });
+      }
+    } else {
+      // Record a placeholder metric for environments without performance.memory
       this.recordMetric({
         type: 'memory',
         name: 'heap_usage',
-        value: memoryInfo.usedJSHeapSize / (1024 * 1024), // Convert to MB
+        value: 0,
         unit: 'MB',
         tags: {
-          trend: memoryStats.growthTrend,
+          trend: 'stable',
+          unavailable: 'true',
         },
         metadata: {
           source: 'memory-monitor',
-          context: 'memory_usage',
+          context: 'memory_usage_unavailable',
         },
       });
-
-      this.lastMemoryMeasurement = memoryStats;
     }
   }
 
@@ -730,7 +766,7 @@ export class PerformanceMonitor {
 
     // Trigger auto-optimization for critical/emergency alerts
     if (this.config.enableAutoOptimization && (alert.severity === 'critical' || alert.severity === 'emergency')) {
-      setImmediate(() => this.triggerOptimization());
+      setTimeout(() => this.triggerOptimization(), 0);
     }
   }
 
@@ -775,11 +811,16 @@ export class PerformanceMonitor {
    * Calculate memory growth trend
    */
   private calculateMemoryTrend(currentUsage: number): 'stable' | 'increasing' | 'decreasing' | 'volatile' {
-    if (!this.lastMemoryMeasurement) {
+    if (!this.lastMemoryMeasurement || typeof currentUsage !== 'number' || currentUsage <= 0) {
       return 'stable';
     }
 
     const previousUsage = this.lastMemoryMeasurement.usedJSHeapSize;
+
+    if (typeof previousUsage !== 'number' || previousUsage <= 0) {
+      return 'stable';
+    }
+
     const difference = currentUsage - previousUsage;
     const percentChange = Math.abs(difference / previousUsage) * 100;
 
@@ -1082,7 +1123,6 @@ export class PerformanceMonitor {
     this.metrics = this.metrics.filter(metric => new Date(metric.timestamp).getTime() >= cutoffTime);
 
     if (this.metrics.length < originalLength) {
-      console.debug(`[PerformanceMonitor] Cleaned up ${originalLength - this.metrics.length} old metrics`);
     }
   }
 
@@ -1096,7 +1136,6 @@ export class PerformanceMonitor {
     this.alerts = this.alerts.filter(alert => new Date(alert.timestamp).getTime() >= cutoffTime);
 
     if (this.alerts.length < originalLength) {
-      console.debug(`[PerformanceMonitor] Cleaned up ${originalLength - this.alerts.length} old alerts`);
     }
   }
 
@@ -1110,7 +1149,6 @@ export class PerformanceMonitor {
     this.snapshots = this.snapshots.filter(snapshot => new Date(snapshot.timestamp).getTime() >= cutoffTime);
 
     if (this.snapshots.length < originalLength) {
-      console.debug(`[PerformanceMonitor] Cleaned up ${originalLength - this.snapshots.length} old snapshots`);
     }
   }
 

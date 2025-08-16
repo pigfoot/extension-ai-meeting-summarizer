@@ -111,11 +111,9 @@ export class JobQueueManager {
       result.success = true;
       result.message = `Job queued with priority: ${job.executionContext.priority}`;
 
-      console.log(`[JobQueueManager] Job ${job.jobId} queued successfully`);
-
       // Trigger immediate scheduling check if enabled
       if (this.schedulerConfig.enabled) {
-        setImmediate(() => this.processNextJobs());
+        setTimeout(() => this.processNextJobs(), 0);
       }
     } catch (error) {
       result.message = error instanceof Error ? error.message : String(error);
@@ -161,7 +159,6 @@ export class JobQueueManager {
         this.updateQueueMetrics();
         result.success = true;
         result.message = 'Job removed from queue';
-        console.log(`[JobQueueManager] Job ${jobId} dequeued successfully`);
       } else {
         result.message = 'Job not found in queue';
       }
@@ -178,6 +175,7 @@ export class JobQueueManager {
    */
   async getNextJob(): Promise<OrchestrationJob | null> {
     try {
+
       // Check if we can process more jobs
       if (!this.canProcessMoreJobs()) {
         return null;
@@ -205,6 +203,7 @@ export class JobQueueManager {
       if (nextJob) {
         // Allocate resources for the job
         const allocation = await this.allocateResources(nextJob);
+
         if (!allocation.allocated) {
           return null; // Cannot allocate resources
         }
@@ -217,7 +216,6 @@ export class JobQueueManager {
           processingSlots: allocation.processingSlots,
         };
 
-        console.log(`[JobQueueManager] Next job selected: ${nextJob.jobId}`);
       }
 
       return nextJob;
@@ -275,7 +273,6 @@ export class JobQueueManager {
       operationResult.success = true;
       operationResult.message = 'Job completed successfully';
 
-      console.log(`[JobQueueManager] Job ${jobId} completed successfully`);
     } catch (error) {
       operationResult.message = error instanceof Error ? error.message : String(error);
       console.error(`[JobQueueManager] Failed to complete job ${jobId}:`, error);
@@ -343,7 +340,6 @@ export class JobQueueManager {
       // Update metrics
       this.updateQueueMetrics();
 
-      console.log(`[JobQueueManager] Job ${jobId} failed: ${error.message}`);
     } catch (processingError) {
       operationResult.message = processingError instanceof Error ? processingError.message : String(processingError);
       console.error(`[JobQueueManager] Failed to handle job failure for ${jobId}:`, processingError);
@@ -428,7 +424,6 @@ export class JobQueueManager {
    */
   updateLimits(limits: Partial<ProcessingLimits>): void {
     this.config.processingLimits = { ...this.config.processingLimits, ...limits };
-    console.log('[JobQueueManager] Processing limits updated');
   }
 
   /**
@@ -437,7 +432,6 @@ export class JobQueueManager {
   pauseProcessing(): void {
     this.schedulerConfig.enabled = false;
     this.stopJobScheduler();
-    console.log('[JobQueueManager] Job processing paused');
   }
 
   /**
@@ -446,15 +440,12 @@ export class JobQueueManager {
   resumeProcessing(): void {
     this.schedulerConfig.enabled = true;
     this.startJobScheduler();
-    console.log('[JobQueueManager] Job processing resumed');
   }
 
   /**
    * Shutdown the job queue manager
    */
   async shutdown(): Promise<void> {
-    console.log('[JobQueueManager] Shutting down');
-
     this.stopJobScheduler();
     this.stopMetricsCollection();
 
@@ -472,7 +463,6 @@ export class JobQueueManager {
     }
 
     this.state.queuedJobs.clear();
-    console.log('[JobQueueManager] Shutdown completed');
   }
 
   /**
@@ -484,10 +474,10 @@ export class JobQueueManager {
     for (const priority of priorities) {
       const jobs = this.state.queuedJobs.get(priority);
       if (jobs && jobs.length > 0) {
-        return jobs.shift()!;
+        const job = jobs.shift()!;
+        return job;
       }
     }
-
     return null;
   }
 
@@ -575,11 +565,11 @@ export class JobQueueManager {
    * Check if we can process more jobs
    */
   private canProcessMoreJobs(): boolean {
-    return (
-      this.state.processingJobs.size < this.config.processingLimits.maxConcurrentJobs &&
-      this.state.resourceUsage.memoryUsage < this.config.processingLimits.maxTotalMemory &&
-      this.state.resourceUsage.activeAPICalls < this.config.processingLimits.maxAPICallsPerMinute
-    );
+    const concurrentCheck = this.state.processingJobs.size < this.config.processingLimits.maxConcurrentJobs;
+    const memoryCheck = this.state.resourceUsage.memoryUsage < this.config.processingLimits.maxTotalMemory;
+    const apiCheck = this.state.resourceUsage.activeAPICalls < this.config.processingLimits.maxAPICallsPerMinute;
+
+    return concurrentCheck && memoryCheck && apiCheck;
   }
 
   /**
@@ -601,12 +591,16 @@ export class JobQueueManager {
       const baseMemory = this.config.processingLimits.maxMemoryPerJob;
       const requiredMemory = Math.min(baseMemory * priorityMultiplier, this.config.processingLimits.maxMemoryPerJob);
 
+
       // Check if resources are available
-      if (
-        this.state.resourceUsage.memoryUsage + requiredMemory <= this.config.processingLimits.maxTotalMemory &&
-        this.state.resourceUsage.usedProcessingSlots < this.config.processingLimits.maxConcurrentJobs &&
-        this.state.resourceUsage.activeAPICalls < this.config.processingLimits.maxAPICallsPerMinute
-      ) {
+      const memoryAvailable =
+        this.state.resourceUsage.memoryUsage + requiredMemory <= this.config.processingLimits.maxTotalMemory;
+      const slotsAvailable =
+        this.state.resourceUsage.usedProcessingSlots < this.config.processingLimits.maxConcurrentJobs;
+      const apiAvailable = this.state.resourceUsage.activeAPICalls < this.config.processingLimits.maxAPICallsPerMinute;
+
+
+      if (memoryAvailable && slotsAvailable && apiAvailable) {
         allocation.allocated = true;
         allocation.memoryMB = requiredMemory;
         allocation.apiQuota = 1; // One API call per job
@@ -657,7 +651,6 @@ export class JobQueueManager {
     const priorityQueue = this.state.queuedJobs.get(job.executionContext.priority) || [];
     priorityQueue.push(job);
     this.state.queuedJobs.set(job.executionContext.priority, priorityQueue);
-    console.log(`[JobQueueManager] Job ${job.jobId} requeued for retry`);
   }
 
   /**
@@ -713,7 +706,6 @@ export class JobQueueManager {
         if (!nextJob) break;
 
         // Job would be processed by the job coordinator
-        console.log(`[JobQueueManager] Job ${nextJob.jobId} ready for processing`);
       }
     } catch (error) {
       console.error('[JobQueueManager] Error processing jobs:', error);
@@ -730,7 +722,6 @@ export class JobQueueManager {
       this.processNextJobs();
     }, this.schedulerConfig.schedulingInterval);
 
-    console.log('[JobQueueManager] Job scheduler started');
   }
 
   /**
@@ -740,7 +731,6 @@ export class JobQueueManager {
     if (this.processingInterval) {
       clearInterval(this.processingInterval);
       this.processingInterval = null;
-      console.log('[JobQueueManager] Job scheduler stopped');
     }
   }
 

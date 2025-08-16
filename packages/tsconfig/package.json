@@ -3,5 +3,10 @@
   "version": "0.5.0",
   "description": "chrome extension - tsconfig",
   "private": true,
-  "sideEffects": false
+  "sideEffects": false,
+  "exports": {
+    "./base": "./base.json",
+    "./module": "./module.json",
+    "./app": "./app.json"
+  }
 }

@@ -7,17 +7,19 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
   },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "dist/index.mjs",
+  "types": "index.mts",
   "files": [
     "dist/**"
   ],
   "scripts": {
-    "ready": "tsx lib/index.ts",
+    "ready": "tsc -b",
     "dev": "tsx watch lib/index.ts",
     "build": "tsc --build",
     "clean": "rimraf dist .turbo",
@@ -34,6 +36,7 @@
     "@extension/storage": "workspace:*"
   },
   "devDependencies": {
+    "@extension/tsconfig": "workspace:*",
     "@types/node": "^22.17.1",
     "eslint": "^9.33.0",
     "prettier": "^3.6.2",

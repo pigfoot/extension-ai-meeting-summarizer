@@ -162,7 +162,6 @@ export class SyncCoordinator {
     const startTime = Date.now();
 
     try {
-      console.log(`[SyncCoordinator] Syncing ${dataType}:${key} (${operation})`);
 
       // Create sync event
       const syncEvent = this.createSyncEvent(dataType, key, data, operation);
@@ -191,7 +190,6 @@ export class SyncCoordinator {
    */
   async handleSyncEvent(event: SyncEvent): Promise<void> {
     try {
-      console.log(`[SyncCoordinator] Handling sync event: ${event.dataType} from ${event.source.componentId}`);
 
       // Check for conflicts
       const conflict = await this.detectConflict(event);
@@ -275,7 +273,6 @@ export class SyncCoordinator {
       result.success = true;
       this.stats.conflictsResolved++;
 
-      console.log(`[SyncCoordinator] Conflict ${conflictId} resolved using ${strategy}`);
     } catch (error) {
       result.success = false;
       result.warnings = [error instanceof Error ? error.message : String(error)];
@@ -337,11 +334,9 @@ export class SyncCoordinator {
         this.syncDataStore.delete(key);
       }
 
-      console.log(`[SyncCoordinator] Cleared ${keysToDelete.length} entries for ${dataType}`);
     } else {
       // Clear all data
       this.syncDataStore.clear();
-      console.log('[SyncCoordinator] Cleared all synchronized data');
     }
 
     // Broadcast clear operation
@@ -364,14 +359,12 @@ export class SyncCoordinator {
       }
     }
 
-    console.log('[SyncCoordinator] Configuration updated');
   }
 
   /**
    * Shutdown sync coordinator
    */
   async shutdown(): Promise<void> {
-    console.log('[SyncCoordinator] Shutting down');
 
     this.stopPeriodicSync();
 
@@ -387,7 +380,6 @@ export class SyncCoordinator {
     this.batchOperations.clear();
     this.pendingConflicts.clear();
 
-    console.log('[SyncCoordinator] Shutdown completed');
   }
 
   /**
@@ -452,7 +444,6 @@ export class SyncCoordinator {
       }
     }
 
-    console.log(`[SyncCoordinator] Applied local sync: ${syncKey}`);
   }
 
   /**
@@ -461,7 +452,6 @@ export class SyncCoordinator {
   private async applyRemoteSync(event: SyncEvent): Promise<void> {
     // Apply the same logic as local sync, but from remote source
     await this.applyLocalSync(event);
-    console.log(`[SyncCoordinator] Applied remote sync from ${event.source.componentId}`);
   }
 
   /**
@@ -575,7 +565,6 @@ export class SyncCoordinator {
 
       case 'user_choice':
         // Keep conflict pending for user resolution
-        console.log(`[SyncCoordinator] Conflict ${conflict.conflictId} requires user choice`);
         break;
 
       case 'custom':
@@ -690,7 +679,6 @@ export class SyncCoordinator {
       this.performPeriodicSync();
     }, this.config.options.batchInterval);
 
-    console.log('[SyncCoordinator] Periodic sync started');
   }
 
   /**
@@ -700,7 +688,6 @@ export class SyncCoordinator {
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
-      console.log('[SyncCoordinator] Periodic sync stopped');
     }
   }
 
@@ -710,7 +697,6 @@ export class SyncCoordinator {
   private async performPeriodicSync(): Promise<void> {
     try {
       // This would typically sync with a central storage or other tabs
-      console.log('[SyncCoordinator] Performing periodic sync');
 
       // For now, just update statistics
       this.stats.lastSync = new Date().toISOString();
@@ -723,7 +709,6 @@ export class SyncCoordinator {
    * Process batch operations
    */
   private async processBatchOperations(batchId: string, operations: SyncEvent[]): Promise<void> {
-    console.log(`[SyncCoordinator] Processing batch ${batchId} with ${operations.length} operations`);
 
     for (const operation of operations) {
       try {

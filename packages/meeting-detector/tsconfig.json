@@ -1,17 +1,8 @@
 {
-  "extends": "@extension/tsconfig/base.json",
+  "extends": "@extension/tsconfig/module",
   "compilerOptions": {
-    "composite": true,
-    "outDir": "dist",
-    "rootDir": "lib"
+    "baseUrl": ".",
+    "outDir": "dist"
   },
-  "include": ["lib/**/*"],
-  "references": [
-    {
-      "path": "../shared"
-    },
-    {
-      "path": "../storage"
-    }
-  ]
+  "include": ["index.mts", "lib"]
 }

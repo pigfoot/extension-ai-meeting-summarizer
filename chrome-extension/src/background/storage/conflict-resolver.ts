@@ -248,7 +248,7 @@ export class ConflictResolver {
 
       // Trigger auto-resolution if enabled
       if (this.config.autoResolution.enabled && conflicts.length > 0) {
-        setImmediate(() => this.autoResolveConflicts());
+        setTimeout(() => this.autoResolveConflicts(), 0);
       }
 
       return conflicts;

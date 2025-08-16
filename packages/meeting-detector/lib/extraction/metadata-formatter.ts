@@ -448,7 +448,7 @@ export class MetadataFormatter {
   }
 
   private estimateDurationFromItems(items: unknown[]): number {
-    const totalItemDuration = items.reduce((total: number, item) => {
+    const totalItemDuration: number = items.reduce((total: number, item) => {
       const typedItem = item as Record<string, unknown>;
       const duration = typeof typedItem.duration === 'number' ? typedItem.duration : 0;
       return total + duration;

@@ -6,43 +6,13 @@
  * transcription management, meeting detection, and data processing.
  */
 
+// Import types for internal use - only import what we actually use
+import type { MeetingRecord } from '@extension/shared';
+
 // Re-export types from shared package for convenience
 export type {
   // Meeting domain types
   MeetingRecord,
-  MeetingParticipant,
-  MeetingMetadata,
-  MeetingStatus,
-  MeetingSource,
-  MeetingSearchCriteria,
-  MeetingSearchResults,
-  MeetingAnalytics,
-
-  // Transcription types
-  TranscriptionResult,
-  TranscriptionSegment,
-  TranscriptionWord,
-  TranscriptionConfidence,
-
-  // Meeting summary types
-  MeetingSummary,
-  ActionItem,
-  ActionItemPriority,
-  ActionItemStatus,
-
-  // Azure Speech types
-  AzureSpeechConfig,
-  AudioConfig,
-  SpeechClient,
-  SpeechClientStatus,
-  SpeechRecognitionResult,
-  RecognitionResult,
-  SpeakerDiarizationResult,
-
-  // Extension storage types
-  ExtensionStorageSchema,
-  UserPreferences,
-  CachedTranscription,
 } from '@extension/shared';
 
 // Re-export storage utilities for meeting functionality

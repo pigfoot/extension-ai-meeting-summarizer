@@ -38,6 +38,8 @@
       "@extension/storage/*": ["packages/storage/lib/*"],
       "@extension/meeting-core": ["packages/meeting-core/lib/index.ts"],
       "@extension/meeting-core/*": ["packages/meeting-core/lib/*"],
+      "@extension/meeting-detector": ["packages/meeting-detector/lib/index.ts"],
+      "@extension/meeting-detector/*": ["packages/meeting-detector/lib/*"],
       "@extension/azure-speech": ["packages/azure-speech/lib/index.ts"],
       "@extension/azure-speech/*": ["packages/azure-speech/lib/*"],
       "@extension/ui": ["packages/ui/lib/index.ts"],

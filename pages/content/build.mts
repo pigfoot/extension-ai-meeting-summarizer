@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { makeEntryPointPlugin } from '@extension/hmr';
+import { makeSmartEntryPointPlugin } from '@extension/hmr';
 import { getContentScriptEntries, withPageConfig } from '@extension/vite-config';
 import { IS_DEV } from '@extension/env';
 import { build } from 'vite';
@@ -17,7 +17,13 @@ const configs = Object.entries(getContentScriptEntries(matchesDir)).map(([name, 
       },
     },
     publicDir: resolve(rootDir, 'public'),
-    plugins: [IS_DEV && makeEntryPointPlugin()],
+    plugins: [makeSmartEntryPointPlugin({
+      autoDetect: true,
+      forceInline: ['**/content/**/*.ts', '**/content/**/*.js'], 
+      enablePageReload: IS_DEV,
+      logAnalysisResults: IS_DEV,
+      warnOnIncompatibility: true
+    })],
     build: {
       lib: {
         name: name,
@@ -27,7 +33,7 @@ const configs = Object.entries(getContentScriptEntries(matchesDir)).map(([name, 
       },
       outDir: resolve(rootDir, '..', '..', 'dist', 'content'),
     },
-  }),
+  }, { excludeWatchRebuildPlugin: true }),
 );
 
 const builds = configs.map(async config => {

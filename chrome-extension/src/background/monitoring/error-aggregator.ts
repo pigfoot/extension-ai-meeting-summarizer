@@ -3,6 +3,45 @@
  * Implements comprehensive error tracking, categorization, and reporting
  */
 
+// Global error handler for Service Worker
+let globalErrorHandler: ((error: Error | string, context?: any) => void) | null = null;
+
+// Setup global error handlers immediately (required for Service Worker)
+globalThis.addEventListener('error', event => {
+  if (globalErrorHandler) {
+    globalErrorHandler(event.error || event.message, {
+      severity: 'high',
+      category: 'runtime',
+      source: 'background',
+      type: 'global_error',
+      userAgent: navigator.userAgent,
+      extensionVersion: chrome.runtime.getManifest().version,
+    });
+  } else {
+    console.error(
+      '[GlobalErrorHandler] Error occurred before ErrorAggregator initialization:',
+      event.error || event.message,
+    );
+  }
+});
+
+globalThis.addEventListener('unhandledrejection', event => {
+  if (globalErrorHandler) {
+    globalErrorHandler(event.reason || 'Unhandled promise rejection', {
+      severity: 'high',
+      category: 'runtime',
+      source: 'background',
+      type: 'unhandled_rejection',
+      userAgent: navigator.userAgent,
+      extensionVersion: chrome.runtime.getManifest().version,
+    });
+  } else {
+    console.error('[GlobalErrorHandler] Unhandled rejection before ErrorAggregator initialization:', event.reason);
+  }
+});
+
+console.log('[GlobalErrorHandler] Global error handlers registered for Service Worker');
+
 /**
  * Error severity levels
  */
@@ -299,7 +338,7 @@ export class ErrorAggregator {
 
     if (this.config.enabled) {
       this.startCleanupTimer();
-      this.setupGlobalErrorHandlers();
+      this.connectToGlobalErrorHandler();
     }
   }
 
@@ -396,7 +435,6 @@ export class ErrorAggregator {
         this.stats.processingStats.processed,
       );
 
-      console.debug(`[ErrorAggregator] Error recorded: ${aggregatedError.errorId} (${severity})`);
 
       return aggregatedError.errorId;
     } catch (processingError) {
@@ -597,9 +635,10 @@ export class ErrorAggregator {
 
     if (this.config.enabled && !wasEnabled) {
       this.startCleanupTimer();
-      this.setupGlobalErrorHandlers();
+      this.connectToGlobalErrorHandler();
     } else if (!this.config.enabled && wasEnabled) {
       this.stopCleanupTimer();
+      globalErrorHandler = null; // Disconnect from global error handler
     }
 
     console.log('[ErrorAggregator] Configuration updated');
@@ -627,6 +666,9 @@ export class ErrorAggregator {
 
     this.errors.clear();
     this.patterns.clear();
+
+    // Disconnect from global error handler
+    globalErrorHandler = null;
 
     console.log('[ErrorAggregator] Shutdown completed');
   }
@@ -1135,36 +1177,24 @@ export class ErrorAggregator {
   }
 
   /**
-   * Setup global error handlers
+   * Connect to global error handler (required for Service Worker)
    */
-  private setupGlobalErrorHandlers(): void {
-    // Handle unhandled errors
-    globalThis.addEventListener('error', event => {
-      this.recordError(event.error || event.message, {
-        severity: 'high',
-        category: 'runtime',
-        source: 'background',
+  private connectToGlobalErrorHandler(): void {
+    globalErrorHandler = (error: Error | string, context?: any) => {
+      this.recordError(error, {
+        severity: context?.severity || 'high',
+        category: context?.category || 'runtime',
+        source: context?.source || 'background',
         context: {
-          userAgent: navigator.userAgent,
-          extensionVersion: chrome.runtime.getManifest().version,
+          userAgent: context?.userAgent || navigator.userAgent,
+          extensionVersion: context?.extensionVersion || chrome.runtime.getManifest().version,
           chromeVersion: this.extractChromeVersion(navigator.userAgent),
+          errorType: context?.type,
         },
       });
-    });
+    };
 
-    // Handle unhandled promise rejections
-    globalThis.addEventListener('unhandledrejection', event => {
-      this.recordError(event.reason || 'Unhandled promise rejection', {
-        severity: 'high',
-        category: 'runtime',
-        source: 'background',
-        context: {
-          userAgent: navigator.userAgent,
-          extensionVersion: chrome.runtime.getManifest().version,
-          chromeVersion: this.extractChromeVersion(navigator.userAgent),
-        },
-      });
-    });
+    console.log('[ErrorAggregator] Connected to global error handler');
   }
 
   /**

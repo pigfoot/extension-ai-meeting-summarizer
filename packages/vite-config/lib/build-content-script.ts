@@ -1,6 +1,6 @@
 import { withPageConfig } from './index.js';
 import { IS_DEV } from '@extension/env';
-import { makeEntryPointPlugin } from '@extension/hmr';
+import { makeSmartEntryPointPlugin } from '@extension/hmr';
 import { build as buildTW } from 'tailwindcss/lib/cli/build';
 import { build } from 'vite';
 import { readdirSync, statSync } from 'node:fs';
@@ -47,7 +47,13 @@ const configsBuilder = ({ matchesDir, srcDir, rootDir, contentName }: BuilderPro
         },
       },
       publicDir: resolve(rootDir, 'public'),
-      plugins: [IS_DEV && makeEntryPointPlugin()],
+      plugins: [makeSmartEntryPointPlugin({
+        autoDetect: true,
+        forceInline: ['**/content/**/*.ts', '**/content/**/*.js'],
+        enablePageReload: IS_DEV,
+        logAnalysisResults: IS_DEV,
+        warnOnIncompatibility: true
+      })],
       build: {
         lib: {
           name: name,
@@ -57,7 +63,7 @@ const configsBuilder = ({ matchesDir, srcDir, rootDir, contentName }: BuilderPro
         },
         outDir: resolve(rootDir, '..', '..', 'dist', contentName),
       },
-    }),
+    }, { excludeWatchRebuildPlugin: true }),
   }));
 
 const builds = async ({ srcDir, contentName, rootDir, matchesDir, withTw }: IContentBuilderProps) =>

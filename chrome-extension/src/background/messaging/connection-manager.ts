@@ -139,7 +139,6 @@ export class ConnectionManager {
     const componentId = registration.componentId;
 
     try {
-      console.log(`[ConnectionManager] Connecting to component: ${componentId}`);
 
       // Check if already connected
       const existingConnection = this.connections.get(componentId);
@@ -176,7 +175,6 @@ export class ConnectionManager {
       // Update statistics
       this.updateConnectionStats('connected', registration.type);
 
-      console.log(`[ConnectionManager] Connected to component: ${componentId}`);
 
       return connection;
     } catch (error) {
@@ -206,7 +204,6 @@ export class ConnectionManager {
     }
 
     try {
-      console.log(`[ConnectionManager] Disconnecting from component: ${componentId}`);
 
       // Update connection state
       connection.state = 'disconnecting';
@@ -243,7 +240,6 @@ export class ConnectionManager {
       // Update statistics
       this.updateConnectionStats('disconnected', connection.componentType);
 
-      console.log(`[ConnectionManager] Disconnected from component: ${componentId}`);
     } catch (error) {
       console.error(`[ConnectionManager] Error disconnecting from ${componentId}:`, error);
       throw error;
@@ -423,14 +419,12 @@ export class ConnectionManager {
       }
     }
 
-    console.log('[ConnectionManager] Configuration updated');
   }
 
   /**
    * Shutdown connection manager
    */
   async shutdown(): Promise<void> {
-    console.log('[ConnectionManager] Shutting down');
 
     // Stop health checking
     this.stopHealthChecking();
@@ -456,7 +450,6 @@ export class ConnectionManager {
     }
     this.heartbeatIntervals.clear();
 
-    console.log('[ConnectionManager] Shutdown completed');
   }
 
   /**
@@ -681,7 +674,6 @@ export class ConnectionManager {
    * Attempt to reconnect to a component
    */
   private async attemptReconnection(componentId: string): Promise<void> {
-    console.log(`[ConnectionManager] Attempting reconnection to ${componentId}`);
 
     try {
       // First disconnect cleanly
@@ -692,7 +684,6 @@ export class ConnectionManager {
 
       // Attempt to reconnect would require the original registration
       // For now, just log the attempt
-      console.log(`[ConnectionManager] Reconnection attempted for ${componentId}`);
     } catch (error) {
       console.error(`[ConnectionManager] Reconnection failed for ${componentId}:`, error);
     }
@@ -750,7 +741,6 @@ export class ConnectionManager {
       this.performHealthChecks();
     }, this.config.healthCheck.interval);
 
-    console.log('[ConnectionManager] Health checking started');
   }
 
   /**
@@ -760,7 +750,6 @@ export class ConnectionManager {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
       this.healthCheckInterval = null;
-      console.log('[ConnectionManager] Health checking stopped');
     }
   }
 

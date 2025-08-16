@@ -141,9 +141,15 @@ importers:
 
   chrome-extension:
     dependencies:
+      '@extension/azure-speech':
+        specifier: workspace:*
+        version: link:../packages/azure-speech
       '@extension/env':
         specifier: workspace:*
         version: link:../packages/env
+      '@extension/meeting-detector':
+        specifier: workspace:*
+        version: link:../packages/meeting-detector
       '@extension/shared':
         specifier: workspace:*
         version: link:../packages/shared
@@ -269,6 +275,9 @@ importers:
         specifier: workspace:*
         version: link:../storage
     devDependencies:
+      '@extension/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
       '@types/node':
         specifier: ^22.17.1
         version: 22.17.1
@@ -428,6 +437,9 @@ importers:
       react-spinners:
         specifier: ^0.17.0
         version: 0.17.0(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      tsc-alias:
+        specifier: ^1.8.16
+        version: 1.8.16
 
   packages/vite-config:
     dependencies:

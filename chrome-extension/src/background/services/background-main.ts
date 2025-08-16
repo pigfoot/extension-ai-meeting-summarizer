@@ -5,6 +5,7 @@
 
 import { APICoordinator } from '../azure/api-coordinator';
 import { AzureClientCoordinator } from '../azure/client-coordinator';
+import { AzureErrorHandler } from '../azure/error-handler';
 import { RateLimitManager } from '../azure/rate-limit-manager';
 import { JobCoordinator } from '../jobs/job-coordinator';
 import { JobNotificationService } from '../jobs/job-notifications';
@@ -12,6 +13,7 @@ import { JobQueueManager } from '../jobs/job-queue-manager';
 import { JobTracker } from '../jobs/job-tracker';
 import { LifecycleCoordinator } from '../lifecycle/lifecycle-coordinator';
 import { StartupManager } from '../lifecycle/startup-manager';
+import { StatePersistenceManager } from '../lifecycle/state-persistence';
 import { SuspensionHandler } from '../lifecycle/suspension-handler';
 import { BroadcastManager } from '../messaging/broadcast-manager';
 import { ConnectionManager } from '../messaging/connection-manager';
@@ -23,6 +25,8 @@ import { BatchProcessor } from '../storage/batch-processor';
 import { ConflictResolver } from '../storage/conflict-resolver';
 import { QuotaManager } from '../storage/quota-manager';
 import { StorageCoordinator } from '../storage/storage-coordinator';
+import { analysisOrchestrator, pageMonitor } from '@extension/meeting-detector';
+import type { AzureSpeechConfig } from '@extension/azure-speech';
 
 /**
  * Background service initialization status
@@ -191,7 +195,6 @@ export class BackgroundMain {
    * Initialize background service
    */
   async initialize(): Promise<void> {
-    console.log('[BackgroundMain] Initializing background service');
 
     this.initStatus = 'initializing';
 
@@ -212,6 +215,9 @@ export class BackgroundMain {
         await this.initializeMessaging();
       }
 
+      // Initialize content detection services
+      await this.initializeContentDetection();
+
       // Initialize job orchestration subsystems
       if (this.config.enableJobOrchestration) {
         await this.initializeJobOrchestration();
@@ -229,7 +235,6 @@ export class BackgroundMain {
       this.registerEventHandlers();
 
       this.initStatus = 'ready';
-      console.log('[BackgroundMain] Background service initialized successfully');
 
       // Update statistics
       this.updateStats();
@@ -264,6 +269,109 @@ export class BackgroundMain {
   }
 
   /**
+   * Get comprehensive integration status
+   */
+  async getIntegrationStatus(): Promise<{
+    azureSpeech: {
+      configured: boolean;
+      initialized: boolean;
+      healthy: boolean;
+      issues: string[];
+    };
+    contentDetection: {
+      available: boolean;
+      healthy: boolean;
+      issues: string[];
+    };
+    transcriptionFlow: {
+      ready: boolean;
+      issues: string[];
+    };
+    overallStatus: 'ready' | 'degraded' | 'offline';
+    lastCheck: string;
+  }> {
+    try {
+      // Check Azure Speech status
+      const azureStatus = await this.getAzureConfigurationStatus();
+      const jobCoordinator = this.getSubsystem<JobCoordinator>('jobCoordinator');
+
+      const azureSpeech = {
+        configured: azureStatus.configured,
+        initialized: jobCoordinator?.isAzureSpeechAvailable() || false,
+        healthy: azureStatus.valid && (jobCoordinator?.isAzureSpeechAvailable() || false),
+        issues: azureStatus.issues,
+      };
+
+      // Check content detection status
+      const contentStatus = await this.getContentDetectionStatus();
+      const contentDetection = {
+        available: contentStatus.available,
+        healthy: contentStatus.healthy,
+        issues: contentStatus.issues,
+      };
+
+      // Check overall transcription flow readiness
+      const transcriptionReady = azureSpeech.healthy && contentDetection.healthy;
+      const transcriptionIssues: string[] = [];
+
+      if (!azureSpeech.configured) {
+        transcriptionIssues.push('Azure Speech not configured');
+      }
+      if (!azureSpeech.initialized) {
+        transcriptionIssues.push('Azure Speech service not initialized');
+      }
+      if (!contentDetection.available) {
+        transcriptionIssues.push('Content detection services not available');
+      }
+      if (!contentDetection.healthy) {
+        transcriptionIssues.push('Content detection services unhealthy');
+      }
+
+      // Determine overall status
+      let overallStatus: 'ready' | 'degraded' | 'offline';
+      if (transcriptionReady) {
+        overallStatus = 'ready';
+      } else if (azureSpeech.configured || contentDetection.available) {
+        overallStatus = 'degraded';
+      } else {
+        overallStatus = 'offline';
+      }
+
+      return {
+        azureSpeech,
+        contentDetection,
+        transcriptionFlow: {
+          ready: transcriptionReady,
+          issues: transcriptionIssues,
+        },
+        overallStatus,
+        lastCheck: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('[BackgroundMain] Failed to get integration status:', error);
+      return {
+        azureSpeech: {
+          configured: false,
+          initialized: false,
+          healthy: false,
+          issues: ['Status check failed'],
+        },
+        contentDetection: {
+          available: false,
+          healthy: false,
+          issues: ['Status check failed'],
+        },
+        transcriptionFlow: {
+          ready: false,
+          issues: ['Status check failed'],
+        },
+        overallStatus: 'offline',
+        lastCheck: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
    * Get service statistics
    */
   getStats(): BackgroundServiceStats {
@@ -279,10 +387,123 @@ export class BackgroundMain {
   }
 
   /**
+   * Load Azure Speech configuration from storage
+   */
+  private async loadAzureConfiguration(): Promise<AzureSpeechConfig | null> {
+    try {
+
+      // Load from chrome.storage.sync for cross-device synchronization
+      const result = await chrome.storage.sync.get(['azureSpeechConfig']);
+
+      if (!result.azureSpeechConfig) {
+        console.warn('[BackgroundMain] No Azure Speech configuration found in storage');
+        return null;
+      }
+
+      const config = result.azureSpeechConfig as AzureSpeechConfig;
+
+      // Validate required configuration fields
+      if (!config.subscriptionKey || !config.serviceRegion) {
+        console.error('[BackgroundMain] Azure Speech configuration missing required fields:', {
+          hasSubscriptionKey: !!config.subscriptionKey,
+          hasServiceRegion: !!config.serviceRegion,
+        });
+        return null;
+      }
+
+      return config;
+    } catch (error) {
+      console.error('[BackgroundMain] Failed to load Azure Speech configuration:', error);
+
+      if (this.errorAggregator) {
+        await this.errorAggregator.recordError(error as Error, {
+          severity: 'medium',
+          category: 'configuration',
+          source: 'background',
+        });
+      }
+
+      return null;
+    }
+  }
+
+  /**
+   * Validate Azure Speech configuration
+   */
+  private validateAzureConfiguration(config: AzureSpeechConfig): { valid: boolean; issues: string[] } {
+    const issues: string[] = [];
+
+    // Check required fields
+    if (!config.subscriptionKey) {
+      issues.push('Azure Speech subscription key is required');
+    } else if (typeof config.subscriptionKey !== 'string' || config.subscriptionKey.length < 20) {
+      issues.push('Azure Speech subscription key appears to be invalid');
+    }
+
+    if (!config.serviceRegion) {
+      issues.push('Azure Speech service region is required');
+    } else if (typeof config.serviceRegion !== 'string' || !/^[a-z]+[a-z0-9]*$/.test(config.serviceRegion)) {
+      issues.push('Azure Speech service region format is invalid');
+    }
+
+    // Check optional fields if provided
+    if (config.endpoint && (typeof config.endpoint !== 'string' || !config.endpoint.startsWith('https://'))) {
+      issues.push('Azure Speech endpoint must be a valid HTTPS URL');
+    }
+
+    if (config.language && typeof config.language !== 'string') {
+      issues.push('Azure Speech language must be a string');
+    }
+
+    return {
+      valid: issues.length === 0,
+      issues,
+    };
+  }
+
+  /**
+   * Get Azure Speech configuration status
+   */
+  async getAzureConfigurationStatus(): Promise<{
+    configured: boolean;
+    valid: boolean;
+    issues: string[];
+    lastCheck: string;
+  }> {
+    try {
+      const config = await this.loadAzureConfiguration();
+
+      if (!config) {
+        return {
+          configured: false,
+          valid: false,
+          issues: ['No Azure Speech configuration found'],
+          lastCheck: new Date().toISOString(),
+        };
+      }
+
+      const validation = this.validateAzureConfiguration(config);
+
+      return {
+        configured: true,
+        valid: validation.valid,
+        issues: validation.issues,
+        lastCheck: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        configured: false,
+        valid: false,
+        issues: [`Configuration check failed: ${error instanceof Error ? error.message : 'Unknown error'}`],
+        lastCheck: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
    * Update service configuration
    */
   async updateConfig(config: Partial<BackgroundServiceConfig>): Promise<void> {
-    console.log('[BackgroundMain] Updating configuration');
 
     const previousConfig = { ...this.config };
     this.config = { ...this.config, ...config };
@@ -314,7 +535,6 @@ export class BackgroundMain {
         this.restartHealthMonitoring();
       }
 
-      console.log('[BackgroundMain] Configuration updated successfully');
     } catch (error) {
       console.error('[BackgroundMain] Failed to update configuration:', error);
 
@@ -334,7 +554,6 @@ export class BackgroundMain {
    * Restart background service
    */
   async restart(): Promise<void> {
-    console.log('[BackgroundMain] Restarting background service');
 
     try {
       // Shutdown current service
@@ -349,7 +568,6 @@ export class BackgroundMain {
       // Reinitialize
       await this.initialize();
 
-      console.log('[BackgroundMain] Background service restarted successfully');
     } catch (error) {
       console.error('[BackgroundMain] Failed to restart background service:', error);
       throw error;
@@ -360,7 +578,6 @@ export class BackgroundMain {
    * Shutdown background service
    */
   async shutdown(): Promise<void> {
-    console.log('[BackgroundMain] Shutting down background service');
 
     this.initStatus = 'shutdown';
 
@@ -398,7 +615,6 @@ export class BackgroundMain {
       if (subsystem && typeof subsystem.shutdown === 'function') {
         try {
           await subsystem.shutdown();
-          console.log(`[BackgroundMain] ${name} shutdown completed`);
         } catch (error) {
           console.warn(`[BackgroundMain] Failed to shutdown ${name}:`, error);
         }
@@ -408,7 +624,6 @@ export class BackgroundMain {
     this.subsystems.clear();
     this.health.clear();
 
-    console.log('[BackgroundMain] Background service shutdown completed');
   }
 
   /**
@@ -428,7 +643,6 @@ export class BackgroundMain {
    * Initialize error aggregation
    */
   private async initializeErrorAggregation(): Promise<void> {
-    console.log('[BackgroundMain] Initializing error aggregation');
 
     this.errorAggregator = new ErrorAggregator({
       enabled: true,
@@ -445,12 +659,38 @@ export class BackgroundMain {
    * Initialize performance monitoring
    */
   private async initializePerformanceMonitoring(): Promise<void> {
-    console.log('[BackgroundMain] Initializing performance monitoring');
 
     this.performanceMonitor = new PerformanceMonitor({
       enabled: true,
+      monitoringInterval: 60000, // 1 minute
+      metricCollectionInterval: 15000, // 15 seconds
+      thresholds: {
+        memory: {
+          warning: 100, // 100MB
+          critical: 200, // 200MB
+          emergency: 300, // 300MB
+        },
+        cpu: {
+          warning: 70, // 70%
+          critical: 85, // 85%
+          emergency: 95, // 95%
+        },
+        responseTime: {
+          warning: 1000, // 1 second
+          critical: 3000, // 3 seconds
+          emergency: 5000, // 5 seconds
+        },
+        errorRate: {
+          warning: 5, // 5%
+          critical: 10, // 10%
+          emergency: 20, // 20%
+        },
+      },
       enableAutoOptimization: true,
       enableAlerts: true,
+      alertCooldown: 300000, // 5 minutes
+      metricRetention: 86400000, // 24 hours
+      enableAdvancedMetrics: true,
     });
 
     this.subsystems.set('performanceMonitor', this.performanceMonitor);
@@ -461,28 +701,78 @@ export class BackgroundMain {
    * Initialize lifecycle subsystems
    */
   private async initializeLifecycle(): Promise<void> {
-    console.log('[BackgroundMain] Initializing lifecycle subsystems');
 
     // Initialize startup manager
-    this.startupManager = new StartupManager();
+    this.startupManager = new StartupManager({
+      enableStateRestoration: true,
+      maxStartupTime: 30000,
+      enablePerformanceMonitoring: true,
+      resourceLimits: {
+        maxMemoryMB: 200,
+        maxConcurrentJobs: 10,
+        maxAPICallsPerMinute: 100,
+        storageQuotaThreshold: 0.8,
+        cpuUsageThreshold: 0.8,
+      },
+      enableAutoRecovery: true,
+      debug: {
+        verbose: process.env.NODE_ENV === 'development',
+        logPerformance: process.env.NODE_ENV === 'development',
+        logLifecycle: process.env.NODE_ENV === 'development',
+      },
+    });
     this.subsystems.set('startupManager', this.startupManager);
     this.updateSubsystemHealth('startupManager', 'healthy');
 
     // Initialize state persistence
-    this.statePersistence = new StatePersistenceManager();
+    this.statePersistence = new StatePersistenceManager({
+      includeFields: [],
+      excludeFields: [],
+      enableCompression: true,
+      maxSerializedSize: 1024 * 1024, // 1MB
+    });
     this.subsystems.set('statePersistence', this.statePersistence);
     this.updateSubsystemHealth('statePersistence', 'healthy');
 
     // Initialize suspension handler
-    this.suspensionHandler = new SuspensionHandler();
+    this.suspensionHandler = new SuspensionHandler(this.statePersistence, {
+      cleanupTimeout: 5000,
+      preserveSessionData: true,
+      cleanupStrategies: {},
+    });
     this.subsystems.set('suspensionHandler', this.suspensionHandler);
     this.updateSubsystemHealth('suspensionHandler', 'healthy');
 
     // Initialize lifecycle coordinator
     this.lifecycleCoordinator = new LifecycleCoordinator({
-      startupManager: this.startupManager,
-      statePersistence: this.statePersistence,
-      suspensionHandler: this.suspensionHandler,
+      startup: {
+        subsystems: [],
+        sequentialStartup: true,
+        startupTimeout: 30000,
+        enableProgressReporting: true,
+      },
+      serialization: {
+        includeFields: [],
+        excludeFields: [],
+        enableCompression: true,
+        maxSerializedSize: 1024 * 1024, // 1MB
+      },
+      cleanup: {
+        cleanupTimeout: 5000,
+        preserveSessionData: true,
+        cleanupStrategies: {},
+      },
+      healthMonitoring: {
+        enabled: true,
+        checkInterval: 30000,
+        checkTimeout: 5000,
+        autoRecovery: true,
+      },
+      eventHandling: {
+        enableLogging: process.env.NODE_ENV === 'development',
+        maxHandlersPerEvent: 10,
+        handlerTimeout: 5000,
+      },
     });
     this.subsystems.set('lifecycleCoordinator', this.lifecycleCoordinator);
     this.updateSubsystemHealth('lifecycleCoordinator', 'healthy');
@@ -492,7 +782,6 @@ export class BackgroundMain {
    * Initialize storage subsystems
    */
   private async initializeStorage(): Promise<void> {
-    console.log('[BackgroundMain] Initializing storage subsystems');
 
     // Initialize storage coordinator
     this.storageCoordinator = new StorageCoordinator();
@@ -500,7 +789,22 @@ export class BackgroundMain {
     this.updateSubsystemHealth('storageCoordinator', 'healthy');
 
     // Initialize quota manager
-    this.quotaManager = new QuotaManager();
+    this.quotaManager = new QuotaManager(
+      {
+        warning: 70, // 70% usage warning
+        critical: 85, // 85% usage critical
+        emergency: 95, // 95% usage emergency
+        aggressive: 90, // 90% usage aggressive cleanup
+      },
+      {
+        enabled: true,
+        showWarnings: true,
+        showCritical: true,
+        showCleanupResults: true,
+        displayDuration: 5000, // 5 seconds
+        cooldownPeriod: 300000, // 5 minutes between notifications
+      },
+    );
     this.subsystems.set('quotaManager', this.quotaManager);
     this.updateSubsystemHealth('quotaManager', 'healthy');
 
@@ -519,10 +823,41 @@ export class BackgroundMain {
    * Initialize messaging subsystems
    */
   private async initializeMessaging(): Promise<void> {
-    console.log('[BackgroundMain] Initializing messaging subsystems');
 
     // Initialize message router
-    this.messageRouter = new MessageRouter();
+    this.messageRouter = new MessageRouter({
+      performance: {
+        enablePrioritization: true,
+        queueSizeLimit: 1000,
+        processingInterval: 100,
+        batchSize: 50,
+      },
+      security: {
+        enableEncryption: false,
+        enableSignatureValidation: false,
+        trustedOrigins: [],
+      },
+      reliability: {
+        enableRetries: true,
+        maxRetryAttempts: 3,
+        retryDelay: 1000,
+        enableDeadLetterQueue: true,
+      },
+      monitoring: {
+        enableMetrics: true,
+        enableLogging: process.env.NODE_ENV === 'development',
+        logLevel: 'info',
+      },
+      rateLimiting: {
+        enabled: true,
+        maxRequestsPerMinute: 1000,
+        windowSize: 60000,
+      },
+    });
+
+    // Set reference to this BackgroundMain instance for cross-service communication
+    this.messageRouter.setBackgroundMain(this);
+
     this.subsystems.set('messageRouter', this.messageRouter);
     this.updateSubsystemHealth('messageRouter', 'healthy');
 
@@ -537,7 +872,18 @@ export class BackgroundMain {
     this.updateSubsystemHealth('syncCoordinator', 'healthy');
 
     // Initialize connection manager
-    this.connectionManager = new ConnectionManager(this.messageRouter);
+    this.connectionManager = new ConnectionManager({
+      heartbeatInterval: 30000, // 30 seconds
+      connectionTimeout: 10000, // 10 seconds
+      maxRetryAttempts: 3,
+      retryDelay: 2000, // 2 seconds
+      autoReconnect: true,
+      healthCheck: {
+        enabled: true,
+        interval: 60000, // 1 minute
+        qualityThreshold: 70, // 70%
+      },
+    });
     this.subsystems.set('connectionManager', this.connectionManager);
     this.updateSubsystemHealth('connectionManager', 'healthy');
   }
@@ -546,22 +892,114 @@ export class BackgroundMain {
    * Initialize job orchestration subsystems
    */
   private async initializeJobOrchestration(): Promise<void> {
-    console.log('[BackgroundMain] Initializing job orchestration subsystems');
 
     // Initialize job queue manager
-    this.jobQueueManager = new JobQueueManager();
+    this.jobQueueManager = new JobQueueManager(
+      {
+        queueId: 'main-transcription-queue',
+        mode: 'priority', // 使用優先級調度
+        maxSize: 1000,
+        processingLimits: {
+          maxConcurrentJobs: 5,
+          maxMemoryPerJob: 100, // 100MB per job
+          maxTotalMemory: 500, // 500MB total
+          maxAPICallsPerMinute: 100,
+          maxJobProcessingTime: 300000, // 5 minutes
+        },
+        persistence: {
+          enabled: false, // 暫時禁用持久化
+          storageKey: 'transcription-queue',
+          interval: 30000, // 30 seconds
+        },
+        priorityHandling: {
+          enablePreemption: true,
+          maxWaitTime: 300000, // 5 minutes
+          priorityWeights: {
+            critical: 10,
+            high: 5,
+            normal: 2,
+            low: 1,
+          },
+        },
+        retryPolicy: {
+          enabled: true,
+          maxRetries: 3,
+          retryDelay: 5000,
+          backoffMultiplier: 2,
+        },
+        monitoring: {
+          enabled: true,
+          collectMetrics: true,
+          alertThresholds: {
+            queueSizeWarning: 100,
+            queueSizeCritical: 500,
+            processingTimeWarning: 60000,
+            processingTimeCritical: 300000,
+          },
+        },
+      },
+      {
+        enabled: true,
+        schedulingInterval: 1000,
+        batchSize: 3,
+        loadBalancing: {
+          enabled: true,
+          algorithm: 'round-robin',
+        },
+        resourceManagement: {
+          enableResourceTracking: true,
+          memoryThreshold: 0.8,
+          cpuThreshold: 0.8,
+        },
+      },
+    );
     this.subsystems.set('jobQueueManager', this.jobQueueManager);
     this.updateSubsystemHealth('jobQueueManager', 'healthy');
 
-    // Initialize job coordinator
-    this.jobCoordinator = new JobCoordinator(this.jobQueueManager);
-    this.subsystems.set('jobCoordinator', this.jobCoordinator);
-    this.updateSubsystemHealth('jobCoordinator', 'healthy');
-
-    // Initialize job tracker
-    this.jobTracker = new JobTracker();
+    // Initialize job tracker first (JobCoordinator needs it)
+    this.jobTracker = new JobTracker({
+      enableProgressTracking: true,
+      progressUpdateInterval: 5000, // 5 seconds
+      enableEventLogging: true,
+      maxEventsPerJob: 100,
+      enablePerformanceMetrics: true,
+      timeouts: {
+        defaultTimeout: 300000, // 5 minutes
+        priorityTimeouts: {
+          critical: 600000, // 10 minutes
+          high: 450000, // 7.5 minutes
+          normal: 300000, // 5 minutes
+          low: 180000, // 3 minutes
+        },
+      },
+    });
     this.subsystems.set('jobTracker', this.jobTracker);
     this.updateSubsystemHealth('jobTracker', 'healthy');
+
+    // Initialize job coordinator with all required parameters
+    this.jobCoordinator = new JobCoordinator(this.jobQueueManager, this.jobTracker, {
+      enabled: true,
+      maxConcurrentCalls: 3,
+      apiTimeout: 30000, // 30 seconds
+      enableRetry: true,
+      retry: {
+        maxAttempts: 3,
+        baseDelay: 1000,
+        maxDelay: 10000,
+        exponentialBackoff: true,
+      },
+      healthCheck: {
+        enabled: true,
+        interval: 60000, // 1 minute
+        timeout: 5000, // 5 seconds
+      },
+      monitoring: {
+        enableMetrics: true,
+        metricsInterval: 30000, // 30 seconds
+      },
+    });
+    this.subsystems.set('jobCoordinator', this.jobCoordinator);
+    this.updateSubsystemHealth('jobCoordinator', 'healthy');
 
     // Initialize job notification system
     this.jobNotificationSystem = new JobNotificationService(this.broadcastManager);
@@ -573,50 +1011,340 @@ export class BackgroundMain {
    * Initialize Azure integration subsystems
    */
   private async initializeAzureIntegration(): Promise<void> {
-    console.log('[BackgroundMain] Initializing Azure integration subsystems');
 
     // Initialize client coordinator
-    this.clientCoordinator = new AzureClientCoordinator();
+    this.clientCoordinator = new AzureClientCoordinator({
+      maxClients: 5,
+      idleTimeout: 300000, // 5 minutes
+      enableReuse: true,
+      creationTimeout: 10000, // 10 seconds
+      healthCheckInterval: 60000, // 1 minute
+    });
     this.subsystems.set('clientCoordinator', this.clientCoordinator);
     this.updateSubsystemHealth('clientCoordinator', 'healthy');
 
     // Initialize rate limit manager
-    this.rateLimitManager = new RateLimitManager();
+    this.rateLimitManager = new RateLimitManager({
+      globalLimits: {
+        requestsPerSecond: 10,
+        requestsPerMinute: 100,
+        requestsPerHour: 1000,
+        concurrentRequests: 5,
+      },
+      perServiceLimits: {
+        speechToText: {
+          requestsPerSecond: 5,
+          requestsPerMinute: 50,
+          requestsPerHour: 500,
+          concurrentRequests: 3,
+        },
+        textToSpeech: {
+          requestsPerSecond: 3,
+          requestsPerMinute: 30,
+          requestsPerHour: 300,
+          concurrentRequests: 2,
+        },
+      },
+      adaptiveScaling: {
+        enabled: true,
+        scaleUpThreshold: 0.8,
+        scaleDownThreshold: 0.5,
+        maxScaleFactor: 2,
+        minScaleFactor: 0.1,
+      },
+      violationHandling: {
+        enableRetries: true,
+        maxRetries: 3,
+        retryDelay: 2000,
+        exponentialBackoff: true,
+      },
+      monitoring: {
+        enableMetrics: true,
+        enableViolationLogging: true,
+        cleanupInterval: 300000, // 5 minutes
+      },
+    });
     this.subsystems.set('rateLimitManager', this.rateLimitManager);
     this.updateSubsystemHealth('rateLimitManager', 'healthy');
 
     // Initialize API coordinator
-    this.apiCoordinator = new APICoordinator(this.rateLimitManager);
+    this.apiCoordinator = new APICoordinator(
+      {
+        maxConcurrentCalls: 5,
+        defaultTimeout: 30000, // 30 seconds
+        defaultRetries: 3,
+        enableCaching: true,
+        cacheSize: 100,
+        enableDeduplication: true,
+        loadBalancing: 'least_loaded',
+        healthCheck: {
+          enabled: true,
+          interval: 60000, // 1 minute
+          timeout: 5000, // 5 seconds
+          retryDelay: 2000, // 2 seconds
+        },
+        circuitBreaker: {
+          enabled: true,
+          failureThreshold: 5,
+          resetTimeout: 60000, // 1 minute
+          halfOpenRetries: 2,
+        },
+        requestDeduplication: {
+          enabled: true,
+          windowSize: 30000, // 30 seconds
+          maxDuplicates: 3,
+        },
+        priorityHandling: {
+          enabled: true,
+          urgentQueueSize: 10,
+          highQueueSize: 20,
+          normalQueueSize: 50,
+          lowQueueSize: 100,
+        },
+      },
+      this.rateLimitManager,
+      this.clientCoordinator,
+    );
     this.subsystems.set('apiCoordinator', this.apiCoordinator);
     this.updateSubsystemHealth('apiCoordinator', 'healthy');
 
     // Initialize error handler
-    this.errorHandler = new AzureErrorHandler();
+    this.errorHandler = new AzureErrorHandler({
+      enabled: true,
+      maxRetries: 3,
+      baseDelay: 1000, // 1 second
+      maxDelay: 30000, // 30 seconds
+      backoffMultiplier: 2,
+      jitterEnabled: true,
+      retryableErrors: ['network_error', 'timeout', 'rate_limit', 'service_unavailable', 'authentication_expired'],
+      circuitBreaker: {
+        enabled: true,
+        failureThreshold: 5,
+        resetTimeout: 60000, // 1 minute
+        halfOpenRetries: 2,
+      },
+      monitoring: {
+        enableMetrics: true,
+        enableErrorReporting: true,
+        aggregationInterval: 60000, // 1 minute
+      },
+    });
     this.subsystems.set('errorHandler', this.errorHandler);
     this.updateSubsystemHealth('errorHandler', 'healthy');
+
+    // Load Azure Speech configuration and initialize JobCoordinator Azure integration
+    await this.initializeJobCoordinatorAzureIntegration();
+  }
+
+  /**
+   * Initialize content detection services
+   */
+  private async initializeContentDetection(): Promise<void> {
+    try {
+
+      // Initialize analysis orchestrator
+      // Note: analysisOrchestrator is a singleton service that manages meeting detection workflows
+      try {
+        // Verify the service is available and functional
+        const healthCheck = await this.performContentDetectionHealthCheck();
+
+        if (healthCheck.healthy) {
+          this.updateSubsystemHealth('contentDetection', 'healthy');
+          this.subsystems.set('contentDetection', { analysisOrchestrator, pageMonitor });
+        } else {
+          console.warn(
+            '[BackgroundMain] Content detection services initialized but health check failed:',
+            healthCheck.issues,
+          );
+          this.updateSubsystemHealth('contentDetection', 'degraded', healthCheck.issues);
+          this.subsystems.set('contentDetection', { analysisOrchestrator, pageMonitor });
+        }
+      } catch (error) {
+        console.error(
+          '[BackgroundMain] Content detection services available but initialization verification failed:',
+          error,
+        );
+        this.updateSubsystemHealth('contentDetection', 'degraded', [
+          `Initialization verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        ]);
+        // Still register the services as they may work despite the health check failure
+        this.subsystems.set('contentDetection', { analysisOrchestrator, pageMonitor });
+      }
+    } catch (error) {
+      console.error('[BackgroundMain] Failed to initialize content detection services:', error);
+      this.updateSubsystemHealth('contentDetection', 'unhealthy', [
+        `Service initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      ]);
+
+      // Record error for monitoring
+      if (this.errorAggregator) {
+        await this.errorAggregator.recordError(error as Error, {
+          severity: 'medium',
+          category: 'service_initialization',
+          source: 'background',
+        });
+      }
+
+      // Don't throw - allow other services to initialize
+      console.warn('[BackgroundMain] Continuing initialization without content detection services');
+    }
+  }
+
+  /**
+   * Perform content detection health check
+   */
+  private async performContentDetectionHealthCheck(): Promise<{ healthy: boolean; issues: string[] }> {
+    const issues: string[] = [];
+
+    try {
+      // Check if analysis orchestrator is available
+      if (!analysisOrchestrator) {
+        issues.push('Analysis orchestrator is not available');
+      }
+
+      // Check if page monitor is available
+      if (!pageMonitor) {
+        issues.push('Page monitor is not available');
+      }
+
+      // For background service, we can't directly test DOM operations
+      // but we can verify the services are properly exported
+      if (typeof analysisOrchestrator === 'object' && analysisOrchestrator !== null) {
+      } else {
+        issues.push('Analysis orchestrator is not properly exported');
+      }
+
+      if (typeof pageMonitor === 'object' && pageMonitor !== null) {
+      } else {
+        issues.push('Page monitor is not properly exported');
+      }
+
+      return {
+        healthy: issues.length === 0,
+        issues,
+      };
+    } catch (error) {
+      issues.push(`Health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return {
+        healthy: false,
+        issues,
+      };
+    }
+  }
+
+  /**
+   * Get content detection service status
+   */
+  async getContentDetectionStatus(): Promise<{
+    available: boolean;
+    healthy: boolean;
+    issues: string[];
+    lastCheck: string;
+  }> {
+    try {
+      const contentDetection = this.subsystems.get('contentDetection');
+
+      if (!contentDetection) {
+        return {
+          available: false,
+          healthy: false,
+          issues: ['Content detection services not initialized'],
+          lastCheck: new Date().toISOString(),
+        };
+      }
+
+      const healthCheck = await this.performContentDetectionHealthCheck();
+
+      return {
+        available: true,
+        healthy: healthCheck.healthy,
+        issues: healthCheck.issues,
+        lastCheck: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        available: false,
+        healthy: false,
+        issues: [`Status check failed: ${error instanceof Error ? error.message : 'Unknown error'}`],
+        lastCheck: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Initialize JobCoordinator Azure Speech integration
+   */
+  private async initializeJobCoordinatorAzureIntegration(): Promise<void> {
+    try {
+
+      // Load Azure Speech configuration
+      const azureConfig = await this.loadAzureConfiguration();
+
+      if (!azureConfig) {
+        console.warn(
+          '[BackgroundMain] No Azure Speech configuration available - JobCoordinator will operate without Azure Speech integration',
+        );
+        this.updateSubsystemHealth('azureSpeechIntegration', 'degraded', ['No Azure Speech configuration found']);
+        return;
+      }
+
+      // Validate configuration
+      const validation = this.validateAzureConfiguration(azureConfig);
+      if (!validation.valid) {
+        console.error('[BackgroundMain] Invalid Azure Speech configuration:', validation.issues);
+        this.updateSubsystemHealth('azureSpeechIntegration', 'unhealthy', validation.issues);
+        return;
+      }
+
+      // Initialize Azure Speech service in JobCoordinator
+      if (this.jobCoordinator) {
+        try {
+          await this.jobCoordinator.initialize(azureConfig);
+          this.updateSubsystemHealth('azureSpeechIntegration', 'healthy');
+        } catch (error) {
+          console.error('[BackgroundMain] Failed to initialize JobCoordinator Azure Speech integration:', error);
+          this.updateSubsystemHealth('azureSpeechIntegration', 'unhealthy', [
+            `Azure Speech initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          ]);
+
+          // Record error for monitoring
+          if (this.errorAggregator) {
+            await this.errorAggregator.recordError(error as Error, {
+              severity: 'high',
+              category: 'configuration',
+              source: 'background',
+            });
+          }
+        }
+      } else {
+        console.error('[BackgroundMain] JobCoordinator not available for Azure Speech integration');
+        this.updateSubsystemHealth('azureSpeechIntegration', 'unhealthy', ['JobCoordinator not initialized']);
+      }
+    } catch (error) {
+      console.error('[BackgroundMain] Failed to initialize JobCoordinator Azure integration:', error);
+      this.updateSubsystemHealth('azureSpeechIntegration', 'unhealthy', [
+        `Initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      ]);
+    }
   }
 
   /**
    * Register service worker event handlers
    */
   private registerEventHandlers(): void {
-    console.log('[BackgroundMain] Registering event handlers');
 
     // Handle extension startup
     chrome.runtime.onStartup.addListener(() => {
-      console.log('[BackgroundMain] Extension startup detected');
       this.handleExtensionStartup();
     });
 
     // Handle extension installation
     chrome.runtime.onInstalled.addListener(details => {
-      console.log('[BackgroundMain] Extension installed/updated:', details.reason);
       this.handleExtensionInstalled(details);
     });
 
     // Handle service worker suspension
     chrome.runtime.onSuspend.addListener(() => {
-      console.log('[BackgroundMain] Service worker suspension detected');
       this.handleSuspension();
     });
 
@@ -628,7 +1356,6 @@ export class BackgroundMain {
 
     // Handle connection requests
     chrome.runtime.onConnect.addListener(port => {
-      console.log('[BackgroundMain] Connection established:', port.name);
       this.handleConnection(port);
     });
   }
@@ -676,9 +1403,7 @@ export class BackgroundMain {
    */
   private async handleExtensionInstalled(details: chrome.runtime.InstalledDetails): Promise<void> {
     try {
-      if (this.startupManager) {
-        await this.startupManager.handleInstallation(details);
-      }
+      // StartupManager initialization is handled separately during service startup
 
       if (this.performanceMonitor) {
         this.performanceMonitor.recordMetric({
@@ -714,7 +1439,6 @@ export class BackgroundMain {
    */
   private async handleSuspension(): Promise<void> {
     try {
-      console.log('[BackgroundMain] Handling service worker suspension');
 
       if (this.suspensionHandler) {
         await this.suspensionHandler.handleSuspension();
@@ -790,7 +1514,6 @@ export class BackgroundMain {
       this.performHealthCheck();
     }, this.config.healthCheckInterval);
 
-    console.log('[BackgroundMain] Health monitoring started');
   }
 
   /**
@@ -800,7 +1523,6 @@ export class BackgroundMain {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
       this.healthCheckInterval = null;
-      console.log('[BackgroundMain] Health monitoring stopped');
     }
   }
 
@@ -817,7 +1539,6 @@ export class BackgroundMain {
    */
   private async performHealthCheck(): Promise<void> {
     if (this.config.debug.logSubsystemStatus) {
-      console.log('[BackgroundMain] Performing health check');
     }
 
     for (const [name, subsystem] of this.subsystems.entries()) {
@@ -835,7 +1556,79 @@ export class BackgroundMain {
       }
     }
 
+    // Perform integration-specific health checks
+    await this.performIntegrationHealthChecks();
+
     this.updateStats();
+  }
+
+  /**
+   * Perform health checks for integration services
+   */
+  private async performIntegrationHealthChecks(): Promise<void> {
+    try {
+      // Check Azure Speech integration health
+      if (this.jobCoordinator) {
+        try {
+          const azureAvailable = this.jobCoordinator.isAzureSpeechAvailable();
+          if (azureAvailable) {
+            this.updateSubsystemHealth('azureSpeechIntegration', 'healthy');
+          } else {
+            // Check if Azure configuration exists
+            const azureStatus = await this.getAzureConfigurationStatus();
+            if (azureStatus.configured) {
+              this.updateSubsystemHealth('azureSpeechIntegration', 'degraded', [
+                'Azure Speech service not available despite configuration',
+              ]);
+            } else {
+              this.updateSubsystemHealth('azureSpeechIntegration', 'offline', ['Azure Speech not configured']);
+            }
+          }
+        } catch (error) {
+          this.updateSubsystemHealth('azureSpeechIntegration', 'unhealthy', [
+            `Azure Speech health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          ]);
+        }
+      }
+
+      // Check content detection service health
+      try {
+        const contentStatus = await this.getContentDetectionStatus();
+        if (contentStatus.healthy) {
+          this.updateSubsystemHealth('contentDetection', 'healthy');
+        } else if (contentStatus.available) {
+          this.updateSubsystemHealth('contentDetection', 'degraded', contentStatus.issues);
+        } else {
+          this.updateSubsystemHealth('contentDetection', 'unhealthy', contentStatus.issues);
+        }
+      } catch (error) {
+        this.updateSubsystemHealth('contentDetection', 'unhealthy', [
+          `Content detection health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        ]);
+      }
+
+      // Check overall transcription workflow health
+      try {
+        const integrationStatus = await this.getIntegrationStatus();
+        if (integrationStatus.transcriptionFlow.ready) {
+          this.updateSubsystemHealth('transcriptionWorkflow', 'healthy');
+        } else if (integrationStatus.overallStatus === 'degraded') {
+          this.updateSubsystemHealth('transcriptionWorkflow', 'degraded', integrationStatus.transcriptionFlow.issues);
+        } else {
+          this.updateSubsystemHealth('transcriptionWorkflow', 'unhealthy', integrationStatus.transcriptionFlow.issues);
+        }
+      } catch (error) {
+        this.updateSubsystemHealth('transcriptionWorkflow', 'unhealthy', [
+          `Transcription workflow health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        ]);
+      }
+
+      if (this.config.debug.logSubsystemStatus) {
+        const integrationStatus = await this.getIntegrationStatus();
+      }
+    } catch (error) {
+      console.error('[BackgroundMain] Integration health checks failed:', error);
+    }
   }
 
   /**
@@ -905,7 +1698,6 @@ export class BackgroundMain {
       if (typeof subsystem.restart === 'function') {
         await subsystem.restart();
         this.updateSubsystemHealth(name, 'healthy');
-        console.log(`[BackgroundMain] Successfully recovered subsystem: ${name}`);
       }
     } catch (error) {
       console.error(`[BackgroundMain] Failed to recover subsystem ${name}:`, error);

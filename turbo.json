@@ -33,6 +33,12 @@
         "!**/*.spec.*"
       ]
     },
+    "chrome-extension#ready": {
+      "dependsOn": ["^ready"],  
+      "outputs": ["manifest.js", "*.tsbuildinfo"],
+      "cache": true,
+      "inputs": ["manifest.ts", "pre-build.tsconfig.json"]
+    },
     "dev": {
       "dependsOn": ["ready"],
       "outputs": ["../../dist/**", "dist/**"],

@@ -1155,7 +1155,6 @@ export class TeamsPageHandler {
    */
   private handleLayoutChange(change: { type: string; target?: Element }): void {
     // Emit layout change event for components to adapt
-    console.log('Teams layout changed:', change);
     // TODO: Implement layout change handling
   }
 

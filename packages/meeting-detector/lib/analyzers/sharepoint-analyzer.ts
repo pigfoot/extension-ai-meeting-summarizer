@@ -83,7 +83,14 @@ export class SharePointAnalyzer {
       analysisTime: Date.now(),
       url: url,
       errors: analysis.errors || [],
-      pageMetadata: analysis.pageMetadata || {},
+      pageMetadata: analysis.pageMetadata || {
+        title: '',
+        url: url,
+        loadTime: Date.now(),
+        readyState: 'unknown',
+        contentLength: 0,
+        hasJavaScript: false,
+      },
     };
   }
 
@@ -725,7 +732,11 @@ export class SharePointAnalyzer {
 
     elements.forEach(element => {
       const fileType = element.getAttribute('data-file-type');
-      if (fileType && ['mp4', 'avi', 'wmv'].includes(fileType.toLowerCase())) {
+      const videoFormats = ['mp4', 'avi', 'wmv', 'mov', 'mkv', 'webm'];
+      const audioFormats = ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac', 'wma'];
+      const supportedFormats = [...videoFormats, ...audioFormats];
+      
+      if (fileType && supportedFormats.includes(fileType.toLowerCase())) {
         const nameElement = element.querySelector('.ms-DocumentCard-name, .ms-Link');
         recordings.push({
           name: nameElement?.textContent?.trim() || 'Unknown',

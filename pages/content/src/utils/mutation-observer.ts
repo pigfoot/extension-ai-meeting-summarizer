@@ -138,7 +138,7 @@ export class EnhancedMutationObserver implements PageMonitor {
   /**
    * Check if monitoring is active
    */
-  isMonitoring(): boolean {
+  getMonitoringStatus(): boolean {
     return this.isMonitoring;
   }
 

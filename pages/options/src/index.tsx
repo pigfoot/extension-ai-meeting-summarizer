@@ -1,4 +1,4 @@
-import '@src/index.css';
+import '@extension/ui/global.css';
 import Options from '@src/Options';
 import { createRoot } from 'react-dom/client';
 

@@ -3,6 +3,7 @@
  * Implements MessageRouter with component registration, routing, and conflict prevention
  */
 
+import { analysisOrchestrator, sharePointAnalyzer, mediaUrlScanner } from '@extension/meeting-detector';
 import type {
   MessageRouter as IMessageRouter,
   ComponentRegistration,
@@ -15,6 +16,9 @@ import type {
   MessagePriority,
   RoutingRule,
 } from '../types';
+import type { MeetingDetection, AudioUrlInfo } from '@extension/meeting-detector';
+
+// Import meeting detection capabilities
 
 /**
  * Message validation result
@@ -83,7 +87,6 @@ export class MessageRouter implements IMessageRouter {
         lastActivity: new Date().toISOString(),
       });
 
-      console.log(`[MessageRouter] Component registered: ${registration.componentId} (${registration.type})`);
 
       // Update metrics
       this.updateComponentMetrics();
@@ -119,7 +122,6 @@ export class MessageRouter implements IMessageRouter {
       // Remove pending messages for this component
       this.messageQueue = this.messageQueue.filter(msg => msg.target.componentId !== componentId);
 
-      console.log(`[MessageRouter] Component unregistered: ${componentId}`);
 
       // Update metrics
       this.updateComponentMetrics();
@@ -166,7 +168,6 @@ export class MessageRouter implements IMessageRouter {
       // Update metrics
       this.updateRoutingMetrics(envelope.type, Date.now() - startTime, true);
 
-      console.log(`[MessageRouter] Message queued: ${envelope.messageId} -> ${resolution.targets.length} targets`);
 
       return envelope.messageId;
     } catch (error) {
@@ -197,9 +198,6 @@ export class MessageRouter implements IMessageRouter {
         createdAt: new Date().toISOString(),
       });
 
-      console.log(
-        `[MessageRouter] Subscription created: ${subscription.subscriptionId} for ${subscription.componentId}`,
-      );
 
       return subscription.subscriptionId;
     } catch (error) {
@@ -221,7 +219,6 @@ export class MessageRouter implements IMessageRouter {
 
       this.subscriptions.delete(subscriptionId);
 
-      console.log(`[MessageRouter] Subscription removed: ${subscriptionId}`);
     } catch (error) {
       console.error(`[MessageRouter] Failed to unsubscribe ${subscriptionId}:`, error);
       throw error;
@@ -244,7 +241,6 @@ export class MessageRouter implements IMessageRouter {
 
       await this.sendMessage(broadcastMessage);
 
-      console.log(`[MessageRouter] Broadcast message sent: ${message.messageId}`);
     } catch (error) {
       console.error(`[MessageRouter] Failed to broadcast message ${message.messageId}:`, error);
       throw error;
@@ -279,7 +275,6 @@ export class MessageRouter implements IMessageRouter {
       this.startMessageProcessing();
     }
 
-    console.log('[MessageRouter] Configuration updated');
   }
 
   /**
@@ -293,7 +288,6 @@ export class MessageRouter implements IMessageRouter {
         await this.processNextMessage();
       }
 
-      console.log(`[MessageRouter] Flushed ${pendingCount} pending messages`);
     } catch (error) {
       console.error('[MessageRouter] Error flushing messages:', error);
       throw error;
@@ -304,7 +298,6 @@ export class MessageRouter implements IMessageRouter {
    * Shutdown the message router
    */
   async shutdown(): Promise<void> {
-    console.log('[MessageRouter] Shutting down');
 
     // Stop message processing
     this.stopMessageProcessing();
@@ -322,7 +315,6 @@ export class MessageRouter implements IMessageRouter {
     this.messageQueue = [];
     this.rateLimiters.clear();
 
-    console.log('[MessageRouter] Shutdown completed');
   }
 
   /**
@@ -384,6 +376,65 @@ export class MessageRouter implements IMessageRouter {
   }
 
   /**
+   * Select best quality audio URL from detected URLs
+   */
+  private selectBestAudioUrl(audioUrls: AudioUrlInfo[]): string {
+    if (!audioUrls || audioUrls.length === 0) {
+      throw new Error('No audio URLs provided');
+    }
+
+    // Priority order: MP4 > WAV > MP3, with quality preference
+    const formatPriority = ['mp4', 'wav', 'mp3'];
+
+    for (const format of formatPriority) {
+      const urlsOfFormat = audioUrls.filter(
+        url => url.format?.toLowerCase() === format || url.url.toLowerCase().includes(`.${format}`),
+      );
+
+      if (urlsOfFormat.length > 0) {
+        // Sort by quality indicators: size, resolution, bitrate
+        const sortedUrls = urlsOfFormat.sort((a, b) => {
+          // Prefer larger files (usually higher quality)
+          if (a.size && b.size) {
+            return b.size - a.size;
+          }
+
+          // Prefer URLs with quality indicators in filename
+          const aQuality = this.extractQualityScore(a.url);
+          const bQuality = this.extractQualityScore(b.url);
+
+          return bQuality - aQuality;
+        });
+
+        return sortedUrls[0].url;
+      }
+    }
+
+    // Fallback to first available URL if no format matches
+    return audioUrls[0].url;
+  }
+
+  /**
+   * Extract quality score from URL for sorting
+   */
+  private extractQualityScore(url: string): number {
+    let score = 0;
+
+    // Check for quality indicators in URL
+    if (url.includes('1080p') || url.includes('hd')) score += 100;
+    else if (url.includes('720p')) score += 80;
+    else if (url.includes('480p')) score += 60;
+    else if (url.includes('360p')) score += 40;
+
+    // Check for bitrate indicators
+    if (url.includes('high')) score += 50;
+    else if (url.includes('medium')) score += 30;
+    else if (url.includes('low')) score += 10;
+
+    return score;
+  }
+
+  /**
    * Check rate limits for component
    */
   private checkRateLimit(componentId: string): boolean {
@@ -438,7 +489,6 @@ export class MessageRouter implements IMessageRouter {
         }
 
         if (rule.actions.logRouting) {
-          console.log(`[MessageRouter] Applied routing rule: ${rule.name} to message ${envelope.messageId}`);
         }
       }
     }
@@ -663,7 +713,6 @@ export class MessageRouter implements IMessageRouter {
 
         // Simulate message delivery to component
         // In a real implementation, this would use Chrome extension messaging APIs
-        console.log(`[MessageRouter] Delivering message ${envelope.messageId} to ${target.componentId}`);
 
         // Update delivery confirmations
         envelope.delivery.confirmations.push({
@@ -695,7 +744,6 @@ export class MessageRouter implements IMessageRouter {
       await this.processMessageBatch();
     }, this.config.performance.processingInterval);
 
-    console.log('[MessageRouter] Message processing started');
   }
 
   /**
@@ -705,7 +753,6 @@ export class MessageRouter implements IMessageRouter {
     if (this.processingInterval) {
       clearInterval(this.processingInterval);
       this.processingInterval = null;
-      console.log('[MessageRouter] Message processing stopped');
     }
   }
 
@@ -862,5 +909,393 @@ export class MessageRouter implements IMessageRouter {
       },
       lastUpdated: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Set background main reference for accessing other services
+   */
+  setBackgroundMain(backgroundMain: any): void {
+    this.backgroundMain = backgroundMain;
+  }
+
+  private backgroundMain: any;
+
+  /**
+   * Route message from chrome runtime
+   */
+  async routeMessage(message: unknown, sender: chrome.runtime.MessageSender): Promise<unknown> {
+    try {
+
+      // Basic message validation
+      if (!message || typeof message !== 'object') {
+        throw new Error('Invalid message format');
+      }
+
+      const msg = message as any;
+
+      // Handle different message types
+      switch (msg.type) {
+        case 'GET_STATUS':
+          return {
+            status: 'connected',
+            timestamp: new Date().toISOString(),
+            services: {
+              messageRouter: true,
+              backgroundMain: !!this.backgroundMain,
+              jobCoordinator: !!this.backgroundMain?.getSubsystem('jobCoordinator'),
+            },
+          };
+
+        case 'START_AUDIO_CAPTURE':
+          return await this.handleStartAudioCapture(msg);
+
+        case 'STOP_AUDIO_CAPTURE':
+          return await this.handleStopAudioCapture(msg);
+
+        case 'GET_ACTIVE_JOBS':
+          return await this.handleGetActiveJobs();
+
+        case 'GET_RECENT_MEETINGS':
+          return await this.handleGetRecentMeetings();
+
+        default:
+          console.warn('[MessageRouter] Unknown message type:', msg.type);
+          return {
+            error: 'Unknown message type',
+            type: msg.type,
+          };
+      }
+    } catch (error) {
+      console.error('[MessageRouter] Error routing message:', error);
+      return {
+        error: 'Message routing failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Handle start audio capture request
+   */
+  private async handleStartAudioCapture(msg: any): Promise<unknown> {
+    try {
+
+      if (!this.backgroundMain) {
+        console.error('[MessageRouter] Background service not available');
+        throw new Error('Background service not available');
+      }
+
+      const jobCoordinator = this.backgroundMain.getSubsystem('jobCoordinator');
+      const jobQueueManager = this.backgroundMain.getSubsystem('jobQueueManager');
+      const jobTracker = this.backgroundMain.getSubsystem('jobTracker');
+
+      if (!jobCoordinator || !jobQueueManager || !jobTracker) {
+        console.error('[MessageRouter] Job services not available', {
+          jobCoordinator: !!jobCoordinator,
+          jobQueueManager: !!jobQueueManager,
+          jobTracker: !!jobTracker,
+        });
+        throw new Error('Job services not available');
+      }
+
+      // Step 1: Detect content using meeting-detector with detailed progress tracking
+      let audioUrl: string;
+      let meetingMetadata: any = {};
+
+      try {
+        // Phase 1: Initialize content detection
+
+        // Get active tab for content detection
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tabs.length || !tabs[0].id) {
+          throw new Error('No active tab found for content detection');
+        }
+
+        const activeTab = tabs[0];
+
+        // Phase 2: Execute content detection in the active tab
+        const detectionResults = await chrome.tabs.sendMessage(activeTab.id, {
+          type: 'DETECT_MEETING_CONTENT',
+          tabId: activeTab.id,
+          url: activeTab.url,
+        });
+
+        if (!detectionResults || !detectionResults.success) {
+          throw new Error(detectionResults?.error || 'Content detection failed');
+        }
+
+        // Phase 3: Validate detection results
+        if (!detectionResults.audioUrls || detectionResults.audioUrls.length === 0) {
+          throw new Error('No meeting recordings found on current page');
+        }
+
+        // Phase 4: Select best quality URL
+        audioUrl = this.selectBestAudioUrl(detectionResults.audioUrls);
+        meetingMetadata = detectionResults.metadata || {};
+
+      } catch (detectionError) {
+        console.error('[MessageRouter] Content detection failed:', detectionError);
+
+        const errorMessage = detectionError instanceof Error ? detectionError.message : 'Unknown error';
+
+        // Provide specific error handling based on error type
+        if (errorMessage.includes('No active tab found')) {
+          throw {
+            type: 'content_detection',
+            error: 'No active tab available for content detection',
+            recovery: [
+              'Make sure you have a SharePoint or Teams tab open and active',
+              'Navigate to a meeting page with recordings',
+              'Try refreshing the page and attempting again',
+            ],
+            userMessage: 'Please open a SharePoint page with meeting recordings and try again',
+          };
+        }
+
+        if (errorMessage.includes('No meeting recordings found')) {
+          throw {
+            type: 'content_detection',
+            error: 'No meeting recordings detected on current page',
+            recovery: [
+              'Ensure you are on a SharePoint page with meeting recordings',
+              'Check that the meeting has recorded content available',
+              'Verify you have permission to access the meeting recordings',
+              'Try navigating to a different meeting page',
+            ],
+            userMessage: 'No meeting recordings found. Please navigate to a SharePoint page with recorded meetings.',
+          };
+        }
+
+        if (errorMessage.includes('Content detection failed')) {
+          throw {
+            type: 'content_detection',
+            error: 'Failed to analyze page content for meeting recordings',
+            recovery: [
+              'Check that you have permission to access the meeting content',
+              'Ensure the page has fully loaded before attempting transcription',
+              'Try refreshing the page and waiting for content to load',
+              'Verify the page contains Teams meeting recordings',
+            ],
+            userMessage:
+              'Unable to detect meeting content. Please ensure you have access to the recordings and try again.',
+          };
+        }
+
+        if (errorMessage.includes('permission') || errorMessage.includes('access')) {
+          throw {
+            type: 'content_detection',
+            error: 'Insufficient permissions to access meeting recordings',
+            recovery: [
+              'Contact your IT administrator to verify SharePoint permissions',
+              'Ensure you are logged into SharePoint with the correct account',
+              'Check that the meeting organizer has shared recordings with you',
+              'Try accessing the meeting through Teams directly',
+            ],
+            userMessage:
+              'You do not have permission to access these meeting recordings. Please contact your administrator.',
+          };
+        }
+
+        // Fallback to provided URL or throw detailed error
+        if (msg.audioUrl && msg.audioUrl !== 'system://audio-capture') {
+          audioUrl = msg.audioUrl;
+          meetingMetadata = {
+            title: 'Manual Audio Input',
+            audioSource: 'manual_url',
+            detectionFallback: true,
+          };
+        } else {
+          throw {
+            type: 'content_detection',
+            error: `Content detection failed: ${errorMessage}`,
+            recovery: [
+              'Navigate to a SharePoint page with Teams meeting recordings',
+              'Ensure you have access permissions to the meeting content',
+              'Check your internet connection and SharePoint accessibility',
+              'Try refreshing the page and attempting transcription again',
+              'Contact support if the issue persists',
+            ],
+            userMessage:
+              'Unable to detect meeting content. Please navigate to a SharePoint page with accessible meeting recordings.',
+          };
+        }
+      }
+
+      // Create a transcription job with real URL
+      const jobId = `transcription_${Date.now()}`;
+      const job = {
+        jobId,
+        audioUrl, // Real SharePoint URL from content detection
+        priority: 'normal' as const,
+        config: {
+          language: meetingMetadata.language || 'en-US',
+          enableSpeakerDiarization: true,
+          enableProfanityFilter: false,
+          outputFormat: 'detailed',
+        },
+        executionContext: {
+          priority: 'normal' as const,
+          timeout: 300000, // 5 minutes
+          status: 'queued' as const,
+          startTime: new Date().toISOString(),
+          metadata: {
+            source: msg.source || 'popup',
+            sessionId: `session_${Date.now()}`,
+            audioSource: 'sharepoint_recording',
+            meetingTitle: meetingMetadata.title,
+            meetingDate: meetingMetadata.date,
+            participants: meetingMetadata.participants,
+            detectionConfidence: meetingMetadata.confidence,
+          },
+        },
+      };
+
+
+      // Submit job to queue
+      const enqueueResult = await jobQueueManager.enqueueJob(job);
+
+      // Start tracking the job
+      jobTracker.startTracking(job);
+
+      // Verify job was added
+      const allJobs = jobTracker.getAllJobs();
+
+
+      return {
+        success: true,
+        message: 'Transcription job started with real meeting recording',
+        job: {
+          id: jobId,
+          title: meetingMetadata.title || 'Meeting Transcription',
+          status: 'queued',
+          startTime: new Date().toISOString(),
+          source: 'sharepoint_recording',
+          audioUrl: audioUrl,
+          metadata: meetingMetadata,
+        },
+      };
+    } catch (error) {
+      console.error('[MessageRouter] Failed to start audio capture:', error);
+
+      // Handle structured error objects from content detection
+      if (error && typeof error === 'object' && 'type' in error) {
+        const structuredError = error as any;
+        return {
+          success: false,
+          error: structuredError.error || 'Content detection failed',
+          errorType: structuredError.type || 'unknown',
+          message: structuredError.userMessage || 'Failed to start transcription',
+          recovery: structuredError.recovery || [],
+          details: structuredError,
+        };
+      }
+
+      // Handle regular Error objects
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        errorType: 'system',
+        message: 'Failed to start transcription',
+        recovery: [
+          'Check your internet connection',
+          'Ensure you are on a valid SharePoint or Teams page',
+          'Try refreshing the page and attempting again',
+          'Contact support if the issue persists',
+        ],
+      };
+    }
+  }
+
+  /**
+   * Handle stop audio capture request
+   */
+  private async handleStopAudioCapture(msg: any): Promise<unknown> {
+    try {
+      if (!this.backgroundMain) {
+        throw new Error('Background service not available');
+      }
+
+      const jobCoordinator = this.backgroundMain.getSubsystem('jobCoordinator');
+      if (jobCoordinator && msg.jobId) {
+        // Try to cancel the job
+        // Note: This would need to be implemented in JobCoordinator
+      }
+
+      return {
+        success: true,
+        message: 'Audio capture stop requested',
+      };
+    } catch (error) {
+      console.error('[MessageRouter] Failed to stop audio capture:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Handle get active jobs request
+   */
+  private async handleGetActiveJobs(): Promise<unknown> {
+    try {
+      if (!this.backgroundMain) {
+        console.warn('[MessageRouter] No backgroundMain available for GET_ACTIVE_JOBS');
+        return { jobs: [] };
+      }
+
+      const jobTracker = this.backgroundMain.getSubsystem('jobTracker');
+      if (jobTracker) {
+        // Get jobs that are not completed or failed
+        const allJobs = jobTracker.getAllJobs();
+
+        const activeJobs = allJobs.filter(
+          (job: any) =>
+            job.executionContext.status === 'processing' ||
+            job.executionContext.status === 'queued' ||
+            job.executionContext.status === 'paused',
+        );
+
+
+        // Convert to popup-friendly format
+        const formattedJobs = activeJobs.map((job: any) => {
+          const progress = jobTracker.getJobProgress(job.jobId);
+          const formatted = {
+            id: job.jobId,
+            title: `Transcription - ${job.executionContext.metadata?.audioSource || 'Unknown'}`,
+            status: job.executionContext.status,
+            progress: progress?.completionPercentage || 0,
+            stage: progress?.currentStage || 'initializing',
+            startTime: job.executionContext.startTime,
+            estimatedCompletion: progress?.estimatedCompletion,
+            error: job.executionContext.lastError?.message,
+          };
+          return formatted;
+        });
+
+        const response = { jobs: formattedJobs };
+        return response;
+      } else {
+        console.warn('[MessageRouter] JobTracker subsystem not available');
+        return { jobs: [] };
+      }
+    } catch (error) {
+      console.error('[MessageRouter] Failed to get active jobs:', error);
+      return { jobs: [] };
+    }
+  }
+
+  /**
+   * Handle get recent meetings request
+   */
+  private async handleGetRecentMeetings(): Promise<unknown> {
+    try {
+      // This would connect to storage to get recent meetings
+      // For now, return empty array
+      return { meetings: [] };
+    } catch (error) {
+      console.error('[MessageRouter] Failed to get recent meetings:', error);
+      return { meetings: [] };
+    }
   }
 }

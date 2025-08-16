@@ -3,6 +3,7 @@
  * Implements JobOrchestrator with Azure Speech services integration
  */
 
+import { AzureSpeechService } from '@extension/azure-speech';
 import type { JobQueueManager } from './job-queue-manager';
 import type {
   JobOrchestrator,
@@ -14,7 +15,12 @@ import type {
   JobOrchestrationError,
 } from '../types';
 import type { JobTracker } from './job-tracker';
-import type { TranscriptionResult, CreateTranscriptionJobRequest } from '@extension/azure-speech';
+import type {
+  TranscriptionResult,
+  CreateTranscriptionJobRequest,
+  AzureSpeechConfig,
+  TranscriptionJob,
+} from '@extension/azure-speech';
 
 /**
  * Job execution result
@@ -32,6 +38,29 @@ export interface JobExecutionResult {
   duration: number;
   /** Execution timestamp */
   timestamp: string;
+}
+
+/**
+ * Azure Speech error with recovery information
+ */
+export interface AzureSpeechError extends Error {
+  /** Error type classification */
+  type:
+    | 'quota_exceeded'
+    | 'authentication_error'
+    | 'network_error'
+    | 'audio_error'
+    | 'permission_error'
+    | 'service_unavailable'
+    | 'unknown_error';
+  /** Whether this error is retryable */
+  retryable: boolean;
+  /** Recommended retry delay in milliseconds */
+  retryAfter?: number;
+  /** User-friendly recovery suggestions */
+  recovery: string[];
+  /** Original error object */
+  originalError: unknown;
 }
 
 /**
@@ -57,6 +86,8 @@ export interface AzureIntegrationConfig {
     /** Maximum retry delay in milliseconds */
     maxDelay: number;
   };
+  /** Azure Speech service configuration */
+  speechConfig?: AzureSpeechConfig;
 }
 
 /**
@@ -66,6 +97,7 @@ export class JobCoordinator implements JobOrchestrator {
   private queueManager: JobQueueManager;
   private jobTracker: JobTracker;
   private azureConfig: AzureIntegrationConfig;
+  private azureSpeechService?: AzureSpeechService;
   private isProcessing = false;
   private processingInterval: NodeJS.Timeout | null = null;
   private activeExecutions = new Map<string, Promise<JobExecutionResult>>();
@@ -75,8 +107,83 @@ export class JobCoordinator implements JobOrchestrator {
     this.jobTracker = jobTracker;
     this.azureConfig = azureConfig;
 
-    // Start job processing
+    console.log('[JobCoordinator] Constructor initialized with config:', {
+      azureEnabled: azureConfig.enabled,
+      maxConcurrentCalls: azureConfig.maxConcurrentCalls,
+      apiTimeout: azureConfig.apiTimeout,
+    });
+
+    // Enable processing and start job processing
+    this.isProcessing = true;
+    console.log('[JobCoordinator] Setting isProcessing to true and starting job processing');
     this.startJobProcessing();
+  }
+
+  /**
+   * Initialize Azure Speech service with configuration
+   */
+  async initialize(azureConfig?: AzureSpeechConfig): Promise<void> {
+    try {
+      console.log('[JobCoordinator] Initializing Azure Speech service...');
+
+      // Use provided config or fall back to config in azureConfig
+      const speechConfig = azureConfig || this.azureConfig.speechConfig;
+
+      if (!speechConfig) {
+        console.warn('[JobCoordinator] No Azure Speech configuration provided');
+        return;
+      }
+
+      // Validate required configuration fields
+      if (!speechConfig.subscriptionKey || !speechConfig.serviceRegion) {
+        throw new Error('Azure Speech configuration missing required fields: subscriptionKey and serviceRegion');
+      }
+
+      // Initialize Azure Speech service
+      this.azureSpeechService = new AzureSpeechService(speechConfig);
+      await this.azureSpeechService.initialize();
+
+      console.log('[JobCoordinator] Azure Speech service initialized successfully');
+
+      // Update Azure integration config to enabled
+      this.azureConfig.enabled = true;
+    } catch (error) {
+      console.error('[JobCoordinator] Failed to initialize Azure Speech service:', error);
+      this.azureSpeechService = undefined;
+      this.azureConfig.enabled = false;
+      throw new Error(
+        `Azure Speech initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
+   * Check if Azure Speech service is available
+   */
+  isAzureSpeechAvailable(): boolean {
+    return !!this.azureSpeechService && this.azureConfig.enabled;
+  }
+
+  /**
+   * Validate Azure Speech configuration
+   */
+  private validateAzureConfig(config: AzureSpeechConfig): void {
+    const requiredFields = ['subscriptionKey', 'serviceRegion'];
+    const missingFields = requiredFields.filter(field => !config[field as keyof AzureSpeechConfig]);
+
+    if (missingFields.length > 0) {
+      throw new Error(`Azure Speech configuration missing required fields: ${missingFields.join(', ')}`);
+    }
+
+    // Validate subscription key format (basic validation)
+    if (typeof config.subscriptionKey !== 'string' || config.subscriptionKey.length < 20) {
+      throw new Error('Invalid Azure Speech subscription key format');
+    }
+
+    // Validate service region format
+    if (typeof config.serviceRegion !== 'string' || !/^[a-z]+[a-z0-9]*$/.test(config.serviceRegion)) {
+      throw new Error('Invalid Azure Speech service region format');
+    }
   }
 
   /**
@@ -285,13 +392,22 @@ export class JobCoordinator implements JobOrchestrator {
    * Start job processing
    */
   private startJobProcessing(): void {
-    if (this.processingInterval || !this.isProcessing) return;
+    console.log(
+      `[JobCoordinator] startJobProcessing called - isProcessing: ${this.isProcessing}, processingInterval exists: ${!!this.processingInterval}`,
+    );
+
+    if (this.processingInterval || !this.isProcessing) {
+      console.log(
+        '[JobCoordinator] startJobProcessing early return - processing interval already exists or processing disabled',
+      );
+      return;
+    }
 
     this.processingInterval = setInterval(async () => {
       await this.processJobs();
     }, 1000); // Check for jobs every second
 
-    console.log('[JobCoordinator] Job processing started');
+    console.log('[JobCoordinator] Job processing started - interval ID:', this.processingInterval);
   }
 
   /**
@@ -309,17 +425,37 @@ export class JobCoordinator implements JobOrchestrator {
    * Process jobs from the queue
    */
   private async processJobs(): Promise<void> {
-    if (!this.isProcessing || !this.azureConfig.enabled) return;
+    console.log(
+      `[JobCoordinator] processJobs called - isProcessing: ${this.isProcessing}, azureEnabled: ${this.azureConfig.enabled}`,
+    );
+    console.log(
+      `[JobCoordinator] Active executions: ${this.activeExecutions.size}/${this.azureConfig.maxConcurrentCalls}`,
+    );
+
+    if (!this.isProcessing || !this.azureConfig.enabled) {
+      console.log('[JobCoordinator] Processing disabled or Azure not enabled - skipping job processing');
+      return;
+    }
 
     try {
       // Check if we can process more jobs
       if (this.activeExecutions.size >= this.azureConfig.maxConcurrentCalls) {
+        console.log(
+          `[JobCoordinator] Max concurrent jobs reached: ${this.activeExecutions.size}/${this.azureConfig.maxConcurrentCalls}`,
+        );
         return;
       }
 
       // Get next job from queue
+      console.log('[JobCoordinator] Checking for next job in queue...');
       const job = await this.queueManager.getNextJob();
-      if (!job) return;
+
+      if (!job) {
+        console.log('[JobCoordinator] No jobs available in queue');
+        return;
+      }
+
+      console.log(`[JobCoordinator] Starting execution of job: ${job.jobId}`);
 
       // Start job execution
       const executionPromise = this.executeJob(job);
@@ -354,6 +490,7 @@ export class JobCoordinator implements JobOrchestrator {
       this.jobTracker.updateJobStatus(job.jobId, 'processing', 'Job execution started');
 
       // Update progress - job started
+      console.log(`[JobCoordinator] Setting initial progress for job: ${job.jobId}`);
       this.jobTracker.updateJobProgress(job.jobId, 0, 'initializing', {}, 300000); // 5 min estimate
 
       // Create Azure transcription request
@@ -368,7 +505,9 @@ export class JobCoordinator implements JobOrchestrator {
       };
 
       // Execute transcription (simulated for now)
+      console.log(`[JobCoordinator] Starting Azure transcription simulation for job: ${job.jobId}`);
       const transcriptionResult = await this.executeAzureTranscription(job, transcriptionRequest);
+      console.log(`[JobCoordinator] Azure transcription simulation completed for job: ${job.jobId}`);
 
       result.success = true;
       result.result = transcriptionResult;
@@ -391,82 +530,390 @@ export class JobCoordinator implements JobOrchestrator {
    */
   private async executeAzureTranscription(
     job: OrchestrationJob,
-    _request: CreateTranscriptionJobRequest,
+    request: CreateTranscriptionJobRequest,
   ): Promise<TranscriptionResult> {
-    // Update progress - submitting to Azure
-    this.jobTracker.updateJobProgress(job.jobId, 10, 'submitting_to_azure');
+    console.log(`[JobCoordinator] executeAzureTranscription started for job: ${job.jobId}`);
 
-    // TODO: Integrate with Azure Speech package
-    // For now, simulate transcription process
-    const simulationSteps = [
-      { progress: 20, stage: 'audio_validation', delay: 2000 },
-      { progress: 40, stage: 'transcription_processing', delay: 5000 },
-      { progress: 70, stage: 'speaker_diarization', delay: 3000 },
-      { progress: 90, stage: 'result_compilation', delay: 2000 },
-      { progress: 100, stage: 'completed', delay: 1000 },
-    ];
-
-    for (const step of simulationSteps) {
-      await new Promise(resolve => setTimeout(resolve, step.delay));
-      this.jobTracker.updateJobProgress(
-        job.jobId,
-        step.progress,
-        step.stage,
-        { azureJobId: `azure-${job.jobId}` },
-        step.progress < 100 ? (simulationSteps.length - simulationSteps.indexOf(step)) * 2000 : 0,
-      );
+    // Check if Azure Speech service is available
+    if (!this.isAzureSpeechAvailable()) {
+      throw new Error('Azure Speech service not initialized or not available');
     }
 
-    // Create mock transcription result
-    const mockResult: TranscriptionResult = {
-      jobId: job.jobId,
-      text: 'This is a mock transcription result for testing purposes.',
-      confidence: 0.95,
-      duration: 300, // 5 minutes
-      speakers: [
-        {
-          speakerId: 'speaker-1',
-          displayName: 'Speaker 1',
-          totalSpeakingTime: 180,
-          confidence: 0.92,
-        },
-        {
-          speakerId: 'speaker-2',
-          displayName: 'Speaker 2',
-          totalSpeakingTime: 120,
-          confidence: 0.89,
-        },
+    try {
+      // Update progress - submitting to Azure
+      console.log(`[JobCoordinator] Updating progress to 10% - submitting_to_azure`);
+      this.jobTracker.updateJobProgress(job.jobId, 10, 'submitting_to_azure');
+
+      // Step 1: Submit real transcription job to Azure Speech API with error handling
+      console.log(
+        `[JobCoordinator] Submitting transcription job to Azure Speech API for audio URL: ${request.audioUrl}`,
+      );
+
+      const azureJobResult = await this.callWithCircuitBreaker(() =>
+        this.retryWithBackoff(
+          () =>
+            this.azureSpeechService!.startTranscription(request.audioUrl, {
+              language: request.config.language || 'en-US',
+              enableSpeakerDiarization: request.config.enableSpeakerDiarization || true,
+              enableProfanityFilter: request.config.enableProfanityFilter || false,
+              outputFormat: request.config.outputFormat || 'detailed',
+            }),
+          this.azureConfig.retry?.maxAttempts || 3,
+          this.azureConfig.retry?.initialDelay || 1000,
+        ),
+      );
+
+      if (!azureJobResult.jobId) {
+        throw new Error(`Azure job submission failed: ${azureJobResult.message || 'Unknown error'}`);
+      }
+
+      console.log(`[JobCoordinator] Azure transcription job submitted successfully: ${azureJobResult.jobId}`);
+
+      // Update progress - job submitted
+      this.jobTracker.updateJobProgress(job.jobId, 20, 'azure_queued', {
+        azureJobId: azureJobResult.jobId,
+      });
+
+      // Step 2: Monitor real Azure transcription progress
+      const transcriptionResult = await this.monitorAzureTranscription(job.jobId, azureJobResult.jobId);
+
+      console.log(`[JobCoordinator] Azure transcription completed for job: ${job.jobId}`);
+      return transcriptionResult;
+    } catch (error) {
+      console.error(`[JobCoordinator] Azure transcription failed for job ${job.jobId}:`, error);
+
+      // Handle Azure Speech specific errors with recovery strategies
+      const handledError = await this.handleAzureSpeechError(error, job.jobId, request);
+
+      // Update progress to indicate failure
+      this.jobTracker.updateJobProgress(job.jobId, 0, 'failed', {
+        error: handledError.message,
+        errorType: handledError.type,
+        recovery: handledError.recovery,
+        retryable: handledError.retryable,
+      });
+
+      throw handledError;
+    }
+  }
+
+  /**
+   * Monitor Azure transcription job progress
+   */
+  private async monitorAzureTranscription(localJobId: string, azureJobId: string): Promise<TranscriptionResult> {
+    const maxAttempts = 120; // 10 minutes with 5-second intervals
+    const pollInterval = 5000; // 5 seconds
+    let attempts = 0;
+
+    console.log(`[JobCoordinator] Starting to monitor Azure job: ${azureJobId}`);
+
+    while (attempts < maxAttempts) {
+      try {
+        // Get real Azure transcription status with error handling
+        const statusResult = await this.callWithCircuitBreaker(() =>
+          this.azureSpeechService!.getTranscriptionStatus(azureJobId),
+        );
+
+        console.log(
+          `[JobCoordinator] Azure job ${azureJobId} status: ${statusResult.status} (attempt ${attempts + 1}/${maxAttempts})`,
+        );
+
+        // Update progress based on real Azure status
+        this.updateProgressFromAzureStatus(localJobId, statusResult);
+
+        if (statusResult.status === 'completed') {
+          console.log(`[JobCoordinator] Azure transcription completed for job: ${azureJobId}`);
+
+          // Retrieve actual transcription results
+          const transcriptionJob: TranscriptionJob = {
+            jobId: azureJobId,
+            status: 'completed',
+            audioUrl: '', // Not needed for result retrieval
+            config: {}, // Not needed for result retrieval
+            metadata: statusResult.metadata || {},
+          };
+
+          const transcriptionResult = await this.callWithCircuitBreaker(() =>
+            this.azureSpeechService!.getTranscriptionResult(transcriptionJob),
+          );
+
+          // Update final progress
+          this.jobTracker.updateJobProgress(localJobId, 100, 'completed', {
+            azureJobId: azureJobId,
+            confidence: transcriptionResult.confidence,
+            duration: transcriptionResult.duration,
+          });
+
+          return {
+            jobId: localJobId,
+            text: transcriptionResult.text,
+            confidence: transcriptionResult.confidence,
+            duration: transcriptionResult.duration,
+            speakers: transcriptionResult.speakers || [],
+            segments: transcriptionResult.segments || [],
+            metadata: {
+              ...transcriptionResult.metadata,
+              azureJobId: azureJobId,
+              processingTime: Date.now() - Date.now(), // Will be calculated properly
+              language: transcriptionResult.metadata?.language || 'en-US',
+            },
+          };
+        }
+
+        if (statusResult.status === 'failed') {
+          const errorMessage = statusResult.message || 'Azure transcription failed without specific error message';
+          console.error(`[JobCoordinator] Azure transcription failed for job ${azureJobId}: ${errorMessage}`);
+          throw new Error(`Azure transcription failed: ${errorMessage}`);
+        }
+
+        // Wait before next poll
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        attempts++;
+      } catch (error) {
+        console.error(`[JobCoordinator] Error polling Azure job status for ${azureJobId}:`, error);
+        attempts++;
+
+        // If we're near the end of attempts, throw the error
+        if (attempts >= maxAttempts - 5) {
+          throw error;
+        }
+
+        // Otherwise, continue polling after a longer delay
+        await new Promise(resolve => setTimeout(resolve, pollInterval * 2));
+      }
+    }
+
+    // Timeout reached
+    const timeoutError = new Error(`Azure transcription timeout after ${(maxAttempts * pollInterval) / 1000} seconds`);
+    console.error(`[JobCoordinator] ${timeoutError.message} for job ${azureJobId}`);
+    throw timeoutError;
+  }
+
+  /**
+   * Handle Azure Speech specific errors with recovery strategies
+   */
+  private async handleAzureSpeechError(
+    error: unknown,
+    jobId: string,
+    request: CreateTranscriptionJobRequest,
+  ): Promise<AzureSpeechError> {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.log(`[JobCoordinator] Analyzing Azure Speech error for job ${jobId}: ${errorMessage}`);
+
+    // Classify error type and determine recovery strategy
+    if (errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+      return {
+        type: 'quota_exceeded',
+        message: 'Azure Speech API quota exceeded',
+        retryable: true,
+        retryAfter: 60000, // 1 minute
+        recovery: [
+          'Azure Speech API quota has been exceeded',
+          'The job will be retried automatically after the quota resets',
+          'Consider upgrading your Azure Speech service plan for higher limits',
+          'Monitor your usage in the Azure portal',
+        ],
+        originalError: error,
+      };
+    }
+
+    if (errorMessage.includes('authentication') || errorMessage.includes('401') || errorMessage.includes('403')) {
+      return {
+        type: 'authentication_error',
+        message: 'Azure Speech API authentication failed',
+        retryable: false,
+        recovery: [
+          'Azure Speech API credentials are invalid or expired',
+          'Check your subscription key and service region in settings',
+          'Verify your Azure Speech service is active and properly configured',
+          'Contact your IT administrator if you need new credentials',
+        ],
+        originalError: error,
+      };
+    }
+
+    if (errorMessage.includes('timeout') || errorMessage.includes('network') || errorMessage.includes('connection')) {
+      return {
+        type: 'network_error',
+        message: 'Network connectivity issues with Azure Speech API',
+        retryable: true,
+        retryAfter: 5000, // 5 seconds
+        recovery: [
+          'Network connectivity issue detected',
+          'Check your internet connection',
+          'The job will be retried automatically',
+          'If the issue persists, contact your network administrator',
+        ],
+        originalError: error,
+      };
+    }
+
+    if (errorMessage.includes('audio') || errorMessage.includes('format') || errorMessage.includes('unsupported')) {
+      return {
+        type: 'audio_error',
+        message: 'Audio file format or content issues',
+        retryable: false,
+        recovery: [
+          'The audio file format is not supported or corrupted',
+          'Ensure the meeting recording is in a supported format (MP3, WAV, MP4)',
+          'Check that the SharePoint URL is accessible and contains valid audio content',
+          'Try with a different meeting recording',
+        ],
+        originalError: error,
+      };
+    }
+
+    if (errorMessage.includes('permission') || errorMessage.includes('access')) {
+      return {
+        type: 'permission_error',
+        message: 'Access denied to audio content',
+        retryable: false,
+        recovery: [
+          'You do not have permission to access the meeting recording',
+          'Contact the meeting organizer to share the recording with you',
+          'Verify you are logged into SharePoint with the correct account',
+          'Check your SharePoint permissions for this content',
+        ],
+        originalError: error,
+      };
+    }
+
+    if (errorMessage.includes('service unavailable') || errorMessage.includes('502') || errorMessage.includes('503')) {
+      return {
+        type: 'service_unavailable',
+        message: 'Azure Speech service temporarily unavailable',
+        retryable: true,
+        retryAfter: 30000, // 30 seconds
+        recovery: [
+          'Azure Speech service is temporarily unavailable',
+          'This is likely a temporary Azure service issue',
+          'The job will be retried automatically',
+          'Check Azure service status if the issue persists',
+        ],
+        originalError: error,
+      };
+    }
+
+    // Default error handling for unknown errors
+    return {
+      type: 'unknown_error',
+      message: `Azure Speech transcription failed: ${errorMessage}`,
+      retryable: true,
+      retryAfter: 10000, // 10 seconds
+      recovery: [
+        'An unexpected error occurred during transcription',
+        'The job will be retried automatically',
+        'If the issue persists, please contact support',
+        'Error details: ' + errorMessage,
       ],
-      segments: [
-        {
-          text: 'Hello, welcome to our meeting.',
-          startTime: 0,
-          endTime: 3,
-          speakerId: 'speaker-1',
-          confidence: 0.95,
-          words: [],
-        },
-        {
-          text: 'Thank you, glad to be here.',
-          startTime: 4,
-          endTime: 7,
-          speakerId: 'speaker-2',
-          confidence: 0.92,
-          words: [],
-        },
-      ],
-      metadata: {
-        audioFormat: 'mp3',
-        sampleRate: 44100,
-        channels: 2,
-        processingTime:
-          Date.now() - new Date(job.executionContext.startedAt || job.executionContext.createdAt).getTime(),
-        fileSize: 1024000, // 1MB
-        language: job.config.language,
-      },
+      originalError: error,
+    };
+  }
+
+  /**
+   * Implement retry logic with exponential backoff
+   */
+  private async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    maxAttempts: number = 3,
+    initialDelay: number = 1000,
+  ): Promise<T> {
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`[JobCoordinator] Retry attempt ${attempt}/${maxAttempts}`);
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        console.error(`[JobCoordinator] Attempt ${attempt} failed:`, error);
+
+        if (attempt === maxAttempts) {
+          console.error(`[JobCoordinator] All ${maxAttempts} attempts failed`);
+          break;
+        }
+
+        // Exponential backoff: 1s, 2s, 4s, 8s...
+        const delay = initialDelay * Math.pow(2, attempt - 1);
+        console.log(`[JobCoordinator] Waiting ${delay}ms before retry attempt ${attempt + 1}`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
+   * Circuit breaker pattern for Azure Speech API calls
+   */
+  private circuitBreakerState = {
+    failures: 0,
+    lastFailureTime: 0,
+    state: 'closed' as 'closed' | 'open' | 'half-open',
+  };
+
+  private async callWithCircuitBreaker<T>(operation: () => Promise<T>): Promise<T> {
+    const now = Date.now();
+    const failureThreshold = 5;
+    const timeout = 60000; // 1 minute
+
+    // Check if circuit breaker should reset
+    if (this.circuitBreakerState.state === 'open' && now - this.circuitBreakerState.lastFailureTime > timeout) {
+      console.log('[JobCoordinator] Circuit breaker moving to half-open state');
+      this.circuitBreakerState.state = 'half-open';
+    }
+
+    // Reject if circuit is open
+    if (this.circuitBreakerState.state === 'open') {
+      throw new Error('Azure Speech service circuit breaker is OPEN - service temporarily unavailable');
+    }
+
+    try {
+      const result = await operation();
+
+      // Success - reset circuit breaker
+      if (this.circuitBreakerState.failures > 0) {
+        console.log('[JobCoordinator] Circuit breaker reset after successful operation');
+        this.circuitBreakerState.failures = 0;
+        this.circuitBreakerState.state = 'closed';
+      }
+
+      return result;
+    } catch (error) {
+      this.circuitBreakerState.failures++;
+      this.circuitBreakerState.lastFailureTime = now;
+
+      if (this.circuitBreakerState.failures >= failureThreshold) {
+        console.error(`[JobCoordinator] Circuit breaker OPEN after ${this.circuitBreakerState.failures} failures`);
+        this.circuitBreakerState.state = 'open';
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Update progress based on Azure Speech API status
+   */
+  private updateProgressFromAzureStatus(localJobId: string, azureStatus: any): void {
+    const stageMapping: Record<string, { progress: number; stage: string }> = {
+      notStarted: { progress: 25, stage: 'azure_queued' },
+      running: { progress: 50, stage: 'azure_processing' },
+      processing: { progress: 60, stage: 'azure_analyzing' },
+      succeeded: { progress: 95, stage: 'azure_finalizing' },
+      completed: { progress: 100, stage: 'completed' },
+      failed: { progress: 0, stage: 'failed' },
     };
 
-    return mockResult;
+    const mapping = stageMapping[azureStatus.status] || { progress: 40, stage: 'azure_processing' };
+
+    console.log(`[JobCoordinator] Updating progress for ${localJobId}: ${mapping.progress}% - ${mapping.stage}`);
+
+    this.jobTracker.updateJobProgress(localJobId, mapping.progress, mapping.stage, {
+      azureJobId: azureStatus.jobId,
+      azureStatus: azureStatus.status,
+      azureProgress: azureStatus.progress,
+    });
   }
 
   /**
