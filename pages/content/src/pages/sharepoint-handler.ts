@@ -620,7 +620,7 @@ export class SharePointPageHandler {
   private findRecordingsInElement(element: Element): MeetingRecording[] {
     const recordings: MeetingRecording[] = [];
 
-    // Look for recording links
+    // Strategy 1: Look for recording links (original logic)
     const recordingLinks = element.querySelectorAll('a[href*="recording"], a[href*="stream"], a[href*="video"]');
 
     recordingLinks.forEach((link, index) => {
@@ -647,7 +647,103 @@ export class SharePointPageHandler {
       });
     });
 
+    // Strategy 2: Detect SharePoint Stream direct video pages
+    if (recordings.length === 0) {
+      const directVideoRecording = this.detectSharePointStreamPage();
+      if (directVideoRecording) {
+        recordings.push(directVideoRecording);
+      }
+    }
+
+    // Strategy 3: Look for embedded video elements as fallback
+    if (recordings.length === 0) {
+      const videoElements = element.querySelectorAll('video');
+      videoElements.forEach((video, index) => {
+        const src = video.getAttribute('src') || '';
+        const title = document.title || `Video Recording ${index + 1}`;
+
+        if (src && (src.startsWith('blob:') || src.includes('sharepoint') || src.includes('stream'))) {
+          recordings.push({
+            id: `video-${Date.now()}-${index}`,
+            title,
+            url: window.location.href, // Use current page URL as the recording URL
+            metadata: {
+              format: 'stream',
+              created: new Date(),
+              modified: new Date(),
+              owner: 'Unknown',
+            },
+            permissions: {
+              canView: true,
+              canDownload: false,
+              canShare: false,
+              canEdit: false,
+            },
+            element: video,
+          });
+        }
+      });
+    }
+
     return recordings;
+  }
+
+  /**
+   * Detect SharePoint Stream direct video page
+   */
+  private detectSharePointStreamPage(): MeetingRecording | null {
+    const url = window.location.href;
+    const title = document.title;
+
+    // Check if this is a SharePoint Stream page
+    if (url.includes('stream.aspx') && url.includes('sharepoint.com')) {
+      // Extract video file path from URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const videoId = urlParams.get('id');
+
+      if (videoId || document.querySelector('video')) {
+        return {
+          id: `sharepoint-stream-${Date.now()}`,
+          title: title || 'SharePoint Meeting Recording',
+          url: url,
+          documentId: videoId || undefined,
+          streamVideoId: this.extractStreamVideoIdFromUrl(url),
+          metadata: {
+            format: 'stream',
+            created: new Date(),
+            modified: new Date(),
+            owner: 'Unknown',
+          },
+          permissions: {
+            canView: true,
+            canDownload: false,
+            canShare: false,
+            canEdit: false,
+          },
+          element: document.querySelector('video') || document.body,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract Stream video ID from SharePoint URL
+   */
+  private extractStreamVideoIdFromUrl(url: string): string | undefined {
+    try {
+      const urlObj = new URL(url);
+      const id = urlObj.searchParams.get('id');
+      if (id) {
+        // Extract just the filename from the full path
+        const parts = id.split('/');
+        return parts[parts.length - 1];
+      }
+    } catch (error) {
+      console.warn('Failed to extract stream video ID from URL:', error);
+    }
+    return undefined;
   }
 
   /**
