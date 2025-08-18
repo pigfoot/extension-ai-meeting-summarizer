@@ -16,12 +16,8 @@ import type {
   OptionsView,
   OptionsError,
   ValidationError,
-  UserPreferences,
   ConfigTestResult,
 } from '../types/options-state';
-import type { AzureSpeechConfig } from '@extension/shared';
-
-// Import options-specific components
 import type React from 'react';
 
 /**
@@ -438,15 +434,24 @@ const AboutView: React.FC = () => (
             unless explicitly exported.
           </p>
           <div className="flex gap-4">
-            <a href="#" className="text-blue-600 underline hover:text-blue-800">
+            <button
+              type="button"
+              className="cursor-pointer border-none bg-transparent p-0 text-blue-600 underline hover:text-blue-800"
+              onClick={() => window.open('https://example.com/privacy', '_blank')}>
               Privacy Policy
-            </a>
-            <a href="#" className="text-blue-600 underline hover:text-blue-800">
+            </button>
+            <button
+              type="button"
+              className="cursor-pointer border-none bg-transparent p-0 text-blue-600 underline hover:text-blue-800"
+              onClick={() => window.open('https://example.com/terms', '_blank')}>
               Terms of Service
-            </a>
-            <a href="#" className="text-blue-600 underline hover:text-blue-800">
+            </button>
+            <button
+              type="button"
+              className="cursor-pointer border-none bg-transparent p-0 text-blue-600 underline hover:text-blue-800"
+              onClick={() => window.open('https://example.com/licenses', '_blank')}>
               Open Source Licenses
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -544,7 +549,7 @@ export const OptionsLayout: React.FC<OptionsLayoutProps> = ({
   onReset,
   onTestConfig,
   onExport,
-  onImport,
+  onImport: _onImport,
   onStorageCleanup,
   className,
 }) => {
@@ -609,7 +614,18 @@ export const OptionsLayout: React.FC<OptionsLayoutProps> = ({
     <div className={cn('flex min-h-screen bg-gray-50', className)}>
       {/* Mobile backdrop */}
       {isMobile && mobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-black bg-opacity-50" onClick={handleBackdropClick} />
+        <div
+          className="fixed inset-0 z-40 bg-black bg-opacity-50"
+          onClick={handleBackdropClick}
+          onKeyDown={e => {
+            if (e.key === 'Escape') {
+              handleBackdropClick();
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Close mobile menu"
+        />
       )}
 
       {/* Sidebar */}

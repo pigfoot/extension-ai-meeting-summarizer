@@ -6,7 +6,7 @@
  */
 
 import { cn } from '@extension/ui';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { StorageStatistics, StorageCategoryUsage, StorageRecommendation } from '../types/options-state';
 import type React from 'react';
 
@@ -439,7 +439,7 @@ export const StorageManagement: React.FC<StorageManagementProps> = ({
   className,
   compact = false,
 }) => {
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [_selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
 

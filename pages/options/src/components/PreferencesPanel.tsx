@@ -7,16 +7,7 @@
 
 import { cn } from '@extension/ui';
 import { useState, useCallback } from 'react';
-import type {
-  UserPreferences,
-  GeneralPreferences,
-  TranscriptionPreferences,
-  NotificationPreferences,
-  PrivacyPreferences,
-  InterfacePreferences,
-  ExportPreferences,
-  NotificationType,
-} from '../types/options-state';
+import type { UserPreferences, NotificationType } from '../types/options-state';
 import type React from 'react';
 
 /**
@@ -410,7 +401,7 @@ export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
 
   // Handle preference updates
   const updatePreferences = useCallback(
-    (section: keyof UserPreferences, updates: Partial<any>) => {
+    (section: keyof UserPreferences, updates: Partial<UserPreferences[keyof UserPreferences]>) => {
       onPreferencesChange?.({
         [section]: {
           ...preferences[section],
@@ -917,10 +908,13 @@ export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
               />
               {preferences.export.defaultLocation === 'custom' && (
                 <div className={compact ? 'space-y-1' : 'space-y-2'}>
-                  <label className={cn('block font-medium text-gray-900', compact ? 'text-sm' : 'text-base')}>
+                  <label
+                    htmlFor="custom-export-path"
+                    className={cn('block font-medium text-gray-900', compact ? 'text-sm' : 'text-base')}>
                     Custom Export Path
                   </label>
                   <input
+                    id="custom-export-path"
                     type="text"
                     value={preferences.export.customPath || ''}
                     onChange={e => updatePreferences('export', { customPath: e.target.value })}

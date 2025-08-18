@@ -6,8 +6,8 @@
  */
 
 import { cn } from '@extension/ui';
-import { useState, useCallback, useEffect } from 'react';
-import type { ConfigTestResult, TestDetails, TestError, TestMetrics, ConfigurationForm } from '../types/options-state';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import type { ConfigTestResult, TestDetails, TestError, ConfigurationForm } from '../types/options-state';
 import type { AzureSpeechConfig } from '@extension/shared';
 import type React from 'react';
 
@@ -24,7 +24,7 @@ interface ValidationToolsProps {
   /** Configuration validation handler */
   onValidateConfig?: (config: AzureSpeechConfig) => Promise<boolean>;
   /** Health check handler */
-  onHealthCheck?: (config: AzureSpeechConfig) => Promise<any>;
+  onHealthCheck?: (config: AzureSpeechConfig) => Promise<ConfigTestResult>;
   /** Custom class name */
   className?: string;
   /** Whether component is in compact mode */
@@ -503,7 +503,7 @@ export const ValidationTools: React.FC<ValidationToolsProps> = ({
   azureConfig,
   configForm,
   onRunTest,
-  onValidateConfig,
+  onValidateConfig: _onValidateConfig,
   onHealthCheck,
   className,
   compact = false,
@@ -512,18 +512,22 @@ export const ValidationTools: React.FC<ValidationToolsProps> = ({
   const [testResult, setTestResult] = useState<ConfigTestResult | null>(null);
   const [lastTestTime, setLastTestTime] = useState<Date | null>(null);
   const [isRunningHealthCheck, setIsRunningHealthCheck] = useState(false);
-  const [healthCheckResult, setHealthCheckResult] = useState<any>(null);
+  const [healthCheckResult, setHealthCheckResult] = useState<ConfigTestResult | null>(null);
 
   // Current configuration to test
-  const configToTest = configForm
-    ? {
-        subscriptionKey: configForm.subscriptionKey,
-        region: configForm.region,
-        language: configForm.language,
-        endpoint: configForm.endpoint,
-        enableLogging: configForm.enableLogging,
-      }
-    : azureConfig;
+  const configToTest = useMemo(
+    () =>
+      configForm
+        ? {
+            subscriptionKey: configForm.subscriptionKey,
+            region: configForm.region,
+            language: configForm.language,
+            endpoint: configForm.endpoint,
+            enableLogging: configForm.enableLogging,
+          }
+        : azureConfig,
+    [configForm, azureConfig],
+  );
 
   // Check if configuration is ready for testing
   const canRunTests =

@@ -470,6 +470,16 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
         className,
       )}
       onClick={onClick}
+      onKeyDown={
+        onClick
+          ? e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick(e as React.MouseEvent<HTMLSpanElement>);
+              }
+            }
+          : undefined
+      }
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       aria-label={ariaLabel || `Status: ${displayLabel}`}

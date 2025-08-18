@@ -55,7 +55,7 @@ interface ValidationService {
   /** Validate configuration form */
   validateForm(form: ConfigurationForm): Promise<FormValidationState>;
   /** Validate individual field */
-  validateField(field: string, value: any, config: AzureSpeechConfig): Promise<FieldValidation>;
+  validateField(field: string, value: unknown, config: AzureSpeechConfig): Promise<FieldValidation>;
   /** Get available regions */
   getAvailableRegions(): Promise<AzureRegionInfo[]>;
   /** Get supported languages */
@@ -858,7 +858,7 @@ export const useOptionsFormValidation = (config: AzureSpeechConfig, validationSe
   const service = useRef(validationService || createMockValidationService());
 
   const validateField = useCallback(
-    async (field: string, value: any) => {
+    async (field: string, value: unknown) => {
       setIsValidating(true);
       setFieldValidations(prev => ({
         ...prev,
