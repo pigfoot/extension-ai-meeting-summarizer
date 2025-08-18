@@ -14,8 +14,8 @@ import type {
   ExportContentOptions,
   ExportStylingOptions,
   ExportNamingOptions,
-  ExportMetadataOptions,
-  ContentFilter,
+  ExportMetadataOptions as _ExportMetadataOptions,
+  ContentFilter as _ContentFilter,
 } from '../types/summary';
 import type { MeetingRecord } from '@extension/shared';
 import type React from 'react';
@@ -496,7 +496,7 @@ export const ExportManager: React.FC<ExportManagerProps> = ({
   meeting,
   options,
   onExport,
-  onProgress,
+  onProgress: _onProgress,
   onComplete,
   onError,
   className,
@@ -710,7 +710,7 @@ export const QuickExportButton: React.FC<{
   onExport: (format: ExportFormat) => void;
   className?: string;
   children?: React.ReactNode;
-}> = ({ meeting, format, onExport, className, children }) => {
+}> = ({ meeting: _meeting, format, onExport, className, children }) => {
   const formatInfo = getDefaultExportFormats().find(f => f.format === format);
 
   return (

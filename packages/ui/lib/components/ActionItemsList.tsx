@@ -332,7 +332,7 @@ const ActionItemCard: React.FC<{
   display: ActionItemDisplay;
   onSelect?: (item: ActionItem) => void;
   onAction?: (action: string, item: ActionItem) => void;
-}> = ({ item, display, onSelect, onAction }) => {
+}> = ({ item, display, onSelect, onAction: _onAction }) => {
   const [isExpanded, setIsExpanded] = useState(display.expanded);
 
   const priorityStyling = getPriorityStyling(item.priority);
@@ -641,14 +641,16 @@ export const ActionItemsList: React.FC<ActionItemsListProps> = ({
       [...filteredItems].sort((a, b) => {
         const getFieldValue = (item: ActionItem, field: ActionItemSorting['field']) => {
           switch (field) {
-            case 'priority':
+            case 'priority': {
               const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
               return priorityOrder[item.priority] || 0;
+            }
             case 'dueDate':
               return item.dueDate ? new Date(item.dueDate).getTime() : 0;
-            case 'status':
+            case 'status': {
               const statusOrder = { pending: 1, 'in-progress': 2, completed: 3, cancelled: 4 };
               return statusOrder[item.status] || 0;
+            }
             case 'assignee':
               return item.assignee?.name || 'Unassigned';
             case 'createdAt':
@@ -682,25 +684,25 @@ export const ActionItemsList: React.FC<ActionItemsListProps> = ({
 
     sortedItems.forEach(item => {
       let groupKey: string;
-      let groupTitle: string;
+      let __groupTitle: string;
 
       switch (grouping) {
         case 'priority':
           groupKey = item.priority;
-          groupTitle = `${item.priority.charAt(0).toUpperCase()}${item.priority.slice(1)} Priority`;
+          __groupTitle = `${item.priority.charAt(0).toUpperCase()}${item.priority.slice(1)} Priority`;
           break;
         case 'status':
           groupKey = item.status;
-          groupTitle = item.status.charAt(0).toUpperCase() + item.status.slice(1).replace('-', ' ');
+          __groupTitle = item.status.charAt(0).toUpperCase() + item.status.slice(1).replace('-', ' ');
           break;
         case 'assignee':
           groupKey = item.assignee?.email || 'unassigned';
-          groupTitle = item.assignee?.name || 'Unassigned';
+          __groupTitle = item.assignee?.name || 'Unassigned';
           break;
         case 'dueDate':
           if (!item.dueDate) {
             groupKey = 'no-due-date';
-            groupTitle = 'No Due Date';
+            __groupTitle = 'No Due Date';
           } else {
             const due = new Date(item.dueDate);
             const now = new Date();
@@ -708,25 +710,25 @@ export const ActionItemsList: React.FC<ActionItemsListProps> = ({
 
             if (diffDays < 0) {
               groupKey = 'overdue';
-              groupTitle = 'Overdue';
+              __groupTitle = 'Overdue';
             } else if (diffDays === 0) {
               groupKey = 'today';
-              groupTitle = 'Due Today';
+              __groupTitle = 'Due Today';
             } else if (diffDays <= 7) {
               groupKey = 'this-week';
-              groupTitle = 'This Week';
+              __groupTitle = 'This Week';
             } else if (diffDays <= 30) {
               groupKey = 'this-month';
-              groupTitle = 'This Month';
+              __groupTitle = 'This Month';
             } else {
               groupKey = 'later';
-              groupTitle = 'Later';
+              __groupTitle = 'Later';
             }
           }
           break;
         default:
           groupKey = 'all';
-          groupTitle = 'All Items';
+          __groupTitle = 'All Items';
       }
 
       if (!groups.has(groupKey)) {

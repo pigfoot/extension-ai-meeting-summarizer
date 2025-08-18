@@ -12,10 +12,15 @@ import type {
   SearchHighlight,
   TranscriptionDisplayPreferences,
   ExportFormat,
-  TranscriptionViewerState,
-  TranscriptionViewerActions,
+  TranscriptionViewerState as _TranscriptionViewerState,
+  TranscriptionViewerActions as _TranscriptionViewerActions,
 } from '../types/summary';
-import type { TranscriptionResult, TranscriptionSegment, TranscriptionWord, MeetingRecord } from '@extension/shared';
+import type {
+  TranscriptionResult,
+  TranscriptionSegment,
+  TranscriptionWord,
+  MeetingRecord as _MeetingRecord,
+} from '@extension/shared';
 import type React from 'react';
 
 /**
@@ -48,7 +53,7 @@ const getSpeakerDisplay = (segment: TranscriptionSegment, displayMode: 'name' | 
   switch (displayMode) {
     case 'name':
       return segment.speakerName || segment.speakerId || 'Unknown Speaker';
-    case 'initial':
+    case 'initial': {
       const name = segment.speakerName || segment.speakerId || 'Unknown';
       return name
         .split(' ')
@@ -56,6 +61,7 @@ const getSpeakerDisplay = (segment: TranscriptionSegment, displayMode: 'name' | 
         .join('')
         .toUpperCase()
         .slice(0, 2);
+    }
     case 'id':
       return segment.speakerId || 'Unknown';
     case 'none':

@@ -382,7 +382,7 @@ export const SummaryCard: React.FC<SummaryDisplayProps> = ({
   );
 
   // Handle section click
-  const handleSectionClick = useCallback(
+  const _handleSectionClick = useCallback(
     (section: SummarySection) => {
       onSectionClick?.(section);
     },

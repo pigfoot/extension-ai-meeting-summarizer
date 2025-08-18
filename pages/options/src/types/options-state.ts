@@ -5,7 +5,7 @@
  * Azure API configuration, validation, storage management, and user preferences.
  */
 
-import type { AzureSpeechConfig, AzureRegion, MeetingRecord } from '@extension/shared';
+import type { AzureSpeechConfig, AzureRegion, MeetingRecord as _MeetingRecord } from '@extension/shared';
 
 /**
  * Represents the current tab or section in the options page

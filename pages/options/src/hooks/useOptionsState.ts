@@ -22,7 +22,7 @@ import type {
   AzureRegionInfo,
   LanguageOption,
 } from '../types/options-state';
-import type { AzureSpeechConfig, AzureRegion } from '@extension/shared';
+import type { AzureSpeechConfig, AzureRegion as _AzureRegion } from '@extension/shared';
 
 /**
  * Storage service interface for persistence
@@ -343,7 +343,7 @@ const createMockValidationService = (): ValidationService => ({
     };
   },
 
-  async validateField(field, value, config) {
+  async validateField(field, value, _config) {
     await new Promise(resolve => setTimeout(resolve, 100));
 
     let isValid = true;
@@ -595,7 +595,7 @@ export const useOptionsState = (options: UseOptionsStateOptions = {}) => {
         }));
 
         onValidationChange?.(validationState.isValid);
-      } catch (error) {
+      } catch (_error) {
         console.error('Validation failed:', error);
       }
     },
@@ -615,7 +615,7 @@ export const useOptionsState = (options: UseOptionsStateOptions = {}) => {
           lastSaved: new Date(),
         }));
         onSaveSuccess?.();
-      } catch (error) {
+      } catch (_error) {
         console.error('Auto-save failed:', error);
       }
     };
@@ -630,7 +630,7 @@ export const useOptionsState = (options: UseOptionsStateOptions = {}) => {
     const savePreferences = async () => {
       try {
         await storageService.current.savePreferences(debouncedPreferences);
-      } catch (error) {
+      } catch (_error) {
         console.error('Preferences auto-save failed:', error);
       }
     };
@@ -679,7 +679,7 @@ export const useOptionsState = (options: UseOptionsStateOptions = {}) => {
           isLoading: false,
         }));
         return result;
-      } catch (error) {
+      } catch (_error) {
         const optionsError: OptionsError = {
           type: 'network',
           message: 'Failed to test configuration',
@@ -708,7 +708,7 @@ export const useOptionsState = (options: UseOptionsStateOptions = {}) => {
         }));
 
         onSaveSuccess?.();
-      } catch (error) {
+      } catch (_error) {
         const optionsError: OptionsError = {
           type: 'save',
           message: error instanceof Error ? error.message : 'Failed to save settings',
@@ -753,7 +753,7 @@ export const useOptionsState = (options: UseOptionsStateOptions = {}) => {
       try {
         const stats = await storageService.current.getStorageStats();
         setState(prev => ({ ...prev, storageStats: stats }));
-      } catch (error) {
+      } catch (_error) {
         console.error('Failed to refresh storage stats:', error);
       }
     }, []),
@@ -770,7 +770,7 @@ export const useOptionsState = (options: UseOptionsStateOptions = {}) => {
             storageStats: stats,
             isLoading: false,
           }));
-        } catch (error) {
+        } catch (_error) {
           const optionsError: OptionsError = {
             type: 'storage',
             message: 'Failed to clean up storage',
@@ -794,7 +794,7 @@ export const useOptionsState = (options: UseOptionsStateOptions = {}) => {
         link.download = `meeting-summarizer-config-${new Date().toISOString().split('T')[0]}.json`;
         link.click();
         URL.revokeObjectURL(url);
-      } catch (error) {
+      } catch (_error) {
         const optionsError: OptionsError = {
           type: 'unknown',
           message: 'Failed to export configuration',
@@ -811,7 +811,7 @@ export const useOptionsState = (options: UseOptionsStateOptions = {}) => {
         try {
           await storageService.current.importConfig(configString);
           await loadInitialData();
-        } catch (error) {
+        } catch (_error) {
           const optionsError: OptionsError = {
             type: 'unknown',
             message: 'Failed to import configuration',
@@ -871,7 +871,7 @@ export const useOptionsFormValidation = (config: AzureSpeechConfig, validationSe
           ...prev,
           [field]: validation,
         }));
-      } catch (error) {
+      } catch (_error) {
         console.error('Field validation failed:', error);
       } finally {
         setIsValidating(false);

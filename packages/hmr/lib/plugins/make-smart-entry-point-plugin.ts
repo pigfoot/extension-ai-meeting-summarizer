@@ -2,7 +2,8 @@ import { createChromeExtensionAnalyzer } from '../analyzers/chrome-extension-ana
 import { IS_FIREFOX } from '@extension/env';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { basename, resolve, sep } from 'node:path';
-import type { PluginOption, OutputChunk, OutputAsset } from 'vite';
+import type { OutputChunk, OutputAsset } from 'rollup';
+import type { PluginOption } from 'vite';
 
 /**
  * Configuration options for Smart HMR
