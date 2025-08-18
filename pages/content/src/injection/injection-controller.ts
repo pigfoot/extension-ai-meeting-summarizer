@@ -5,8 +5,7 @@
  * and responsive design support for content scripts.
  */
 
-// Unused imports commented out for now
-// import { domUtils, DOM } from '../utils/dom-utils';
+import { DOM } from '../utils/dom-utils';
 import { eventManager } from '../utils/event-manager';
 import type { UIComponent, InjectionPoint } from '../types/content-script';
 // import type { DOMManipulator } from '../types/content-script';

@@ -169,7 +169,6 @@ export class PageMonitor {
     this.statistics.status = 'active';
     this.statistics.startTime = new Date();
 
-
     // Start navigation monitoring
     if (this.config.monitorNavigation) {
       this.setupNavigationMonitoring();
@@ -194,7 +193,6 @@ export class PageMonitor {
 
     this.isMonitoring = false;
     this.statistics.status = 'stopped';
-
 
     // Stop mutation observer
     mutationObserver.stopMonitoring();
@@ -234,15 +232,31 @@ export class PageMonitor {
   /**
    * Register navigation change callback
    */
-  onNavigationChange(callback: (change: NavigationChange) => void): void {
+  onNavigationChange(callback: (change: NavigationChange) => void): () => void {
     this.navigationCallbacks.push(callback);
+
+    // Return unsubscribe function
+    return () => {
+      const index = this.navigationCallbacks.indexOf(callback);
+      if (index > -1) {
+        this.navigationCallbacks.splice(index, 1);
+      }
+    };
   }
 
   /**
    * Register content change callback
    */
-  onContentChange(callback: (change: ContentChange) => void): void {
+  onContentChange(callback: (change: ContentChange) => void): () => void {
     this.contentCallbacks.push(callback);
+
+    // Return unsubscribe function
+    return () => {
+      const index = this.contentCallbacks.indexOf(callback);
+      if (index > -1) {
+        this.contentCallbacks.splice(index, 1);
+      }
+    };
   }
 
   /**
@@ -411,7 +425,6 @@ export class PageMonitor {
   private async processNavigationChange(change: NavigationChange): Promise<void> {
     this.statistics.navigationChanges++;
     this.statistics.lastActivity = new Date();
-
 
     // Notify callbacks
     this.navigationCallbacks.forEach(callback => {
@@ -670,7 +683,6 @@ export class PageMonitor {
    */
   private handleContentDetection(content: unknown[]): void {
     if (content.length > 0) {
-
       // Create content change for new meeting content
       const contentChange: ContentChange = {
         id: `detected-${Date.now()}`,
@@ -719,11 +731,10 @@ export class PageMonitor {
   /**
    * Handle re-initialization
    */
-  private async handleReinitialization(reason: string): Promise<PageIntegrationContext | null> {
+  private async handleReinitialization(_reason: string): Promise<PageIntegrationContext | null> {
     try {
       this.reinitAttempts++;
       this.statistics.reinitializations++;
-
 
       // Use page router to handle re-initialization
       const context = await pageRouter.handlePageChange();

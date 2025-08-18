@@ -481,11 +481,9 @@ export class BackgroundCoordinator {
       return;
     }
 
-    // Test state synchronizer with a dummy state
-    await stateSynchronizer.setState('feature.flags', 'coordinator.test', true, {
-      stateTTL: 5000,
-      broadcastChanges: false,
-    });
+    // Skip test call to avoid persistence/messaging dependencies during initialization
+    // State synchronizer is already initialized via singleton, so this step is mainly for verification
+    this.log('State synchronizer initialization step completed (singleton already initialized)');
   }
 
   /**

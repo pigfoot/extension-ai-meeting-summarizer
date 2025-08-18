@@ -167,7 +167,7 @@ export class ContentAnalyzer {
     this.config = {
       enableRealTimeMonitoring: true,
       analysisInterval: 2000,
-      meetingThreshold: 0.7,
+      meetingThreshold: 0.3,
       changeSensitivity: 'medium',
       platformRules: {
         sharepoint: true,
@@ -382,7 +382,17 @@ export class ContentAnalyzer {
    * Detect video elements
    */
   private detectVideoElements(): HTMLVideoElement[] {
-    const selectors = ['video', '[data-tid="video"]', '.video-element', '.meeting-video', '[role="video"]'];
+    const selectors = [
+      'video',
+      '[data-tid="video"]',
+      '.video-element',
+      '.meeting-video',
+      '[role="video"]',
+      // SharePoint Stream video players
+      '.od-video-player video',
+      '.ms-stream-video video',
+      '[data-automation-id*="video"] video',
+    ];
 
     return this.findElementsBySelectors<HTMLVideoElement>(selectors);
   }
@@ -456,9 +466,31 @@ export class ContentAnalyzer {
       '[aria-label*="recording"]',
       '.rec-indicator',
       '[title*="recording"]',
+      // SharePoint recording indicators
+      '[data-automation-id*="Recording"]',
+      '.ms-DocumentCard[title*="Recording"]',
+      '.ms-DocumentCard[title*="Meeting Recording"]',
+      '[href*="Meeting+Recording"]',
+      '[data-automation-id="pageTitle"][title*="Meeting Recording"]',
     ];
 
-    return this.findElementsBySelectors(selectors);
+    // Check URL for SharePoint recording patterns
+    const hasRecordingUrl =
+      window.location.href.includes('Meeting+Recording') ||
+      window.location.href.includes('stream.aspx') ||
+      window.location.href.includes('Recording.mp4');
+
+    const elements = this.findElementsBySelectors(selectors);
+
+    // If URL indicates recording page, consider it as having recording indicator
+    if (hasRecordingUrl && elements.length === 0) {
+      // Create a virtual indicator element for URL-based detection
+      const virtualIndicator = document.createElement('div');
+      virtualIndicator.setAttribute('data-virtual-recording-indicator', 'true');
+      elements.push(virtualIndicator);
+    }
+
+    return elements;
   }
 
   /**
@@ -487,12 +519,47 @@ export class ContentAnalyzer {
       '.call-title',
       'h1[aria-label*="meeting"]',
       '[role="heading"][aria-level="1"]',
+      // SharePoint meeting title selectors
+      '[data-automation-id="pageTitle"]',
+      '.ms-DocumentCard-title',
+      'h1',
+      'title',
     ];
 
     for (const selector of selectors) {
       const element = document.querySelector<HTMLElement>(selector);
-      if (element) {
-        return element;
+      if (element && element.textContent) {
+        // Check if title contains meeting-related keywords
+        const text = element.textContent.toLowerCase();
+        if (
+          text.includes('meeting') ||
+          text.includes('recording') ||
+          text.includes('sync') ||
+          text.includes('call') ||
+          text.includes('conference') ||
+          text.includes('taskforce') ||
+          text.includes('.mp4')
+        ) {
+          return element;
+        }
+      }
+    }
+
+    // Check document title as fallback
+    if (document.title) {
+      const titleText = document.title.toLowerCase();
+      if (
+        titleText.includes('meeting') ||
+        titleText.includes('recording') ||
+        titleText.includes('sync') ||
+        titleText.includes('call') ||
+        titleText.includes('conference') ||
+        titleText.includes('.mp4')
+      ) {
+        const titleElement = document.createElement('div');
+        titleElement.textContent = document.title;
+        titleElement.setAttribute('data-virtual-title', 'true');
+        return titleElement;
       }
     }
 

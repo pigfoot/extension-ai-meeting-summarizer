@@ -493,7 +493,6 @@ export class PageRouter {
       this.currentHandler = new registration.handler();
       this.currentPageType = detection.pageType;
 
-
       // Initialize handler
       const context = await this.currentHandler.initialize();
 
@@ -531,6 +530,55 @@ export class PageRouter {
    */
   getCurrentPageType(): string | null {
     return this.currentPageType;
+  }
+
+  /**
+   * Get current page context
+   */
+  getCurrentPageContext(): { pageType: string; platform: string; confidence: number } {
+    // Return cached detection or perform quick detection
+    const currentUrl = window.location.href;
+    const cached = this.detectionCache.get(currentUrl);
+
+    if (cached) {
+      return {
+        pageType: cached.pageType,
+        platform: this.determinePlatform(cached.pageType),
+        confidence: cached.confidence,
+      };
+    }
+
+    // Quick synchronous detection for basic cases
+    let pageType: string = 'unknown';
+    let confidence = 0;
+
+    if (currentUrl.includes('sharepoint')) {
+      pageType = 'sharepoint';
+      confidence = 0.8;
+    } else if (currentUrl.includes('teams.microsoft.com')) {
+      pageType = 'teams';
+      confidence = 0.8;
+    }
+
+    return {
+      pageType,
+      platform: this.determinePlatform(pageType),
+      confidence,
+    };
+  }
+
+  /**
+   * Determine platform from page type
+   */
+  private determinePlatform(pageType: string): string {
+    switch (pageType) {
+      case 'sharepoint':
+        return 'SharePoint';
+      case 'teams':
+        return 'Microsoft Teams';
+      default:
+        return 'Unknown';
+    }
   }
 
   /**
@@ -669,6 +717,12 @@ export const routerUtils = {
    * Get current handler
    */
   getCurrentHandler: (): PageHandler | null => pageRouter.getCurrentHandler(),
+
+  /**
+   * Get current page context
+   */
+  getCurrentPageContext: (): { pageType: string; platform: string; confidence: number } =>
+    pageRouter.getCurrentPageContext(),
 
   /**
    * Handle page changes

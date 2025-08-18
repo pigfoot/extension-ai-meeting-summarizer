@@ -9,31 +9,36 @@ const srcDir = resolve(rootDir, 'src');
 const matchesDir = resolve(srcDir, 'matches');
 
 const configs = Object.entries(getContentScriptEntries(matchesDir)).map(([name, entry]) =>
-  withPageConfig({
-    mode: IS_DEV ? 'development' : undefined,
-    resolve: {
-      alias: {
-        '@src': srcDir,
+  withPageConfig(
+    {
+      mode: IS_DEV ? 'development' : undefined,
+      resolve: {
+        alias: {
+          '@src': srcDir,
+        },
+      },
+      publicDir: resolve(rootDir, 'public'),
+      plugins: [
+        makeSmartEntryPointPlugin({
+          autoDetect: true,
+          forceInline: ['**/content/**/*.ts', '**/content/**/*.js'],
+          enablePageReload: false, // Always disable for content scripts
+          logAnalysisResults: IS_DEV,
+          warnOnIncompatibility: true,
+        }),
+      ],
+      build: {
+        lib: {
+          name: name,
+          formats: ['iife'],
+          entry,
+          fileName: name,
+        },
+        outDir: resolve(rootDir, '..', '..', 'dist', 'content'),
       },
     },
-    publicDir: resolve(rootDir, 'public'),
-    plugins: [makeSmartEntryPointPlugin({
-      autoDetect: true,
-      forceInline: ['**/content/**/*.ts', '**/content/**/*.js'], 
-      enablePageReload: IS_DEV,
-      logAnalysisResults: IS_DEV,
-      warnOnIncompatibility: true
-    })],
-    build: {
-      lib: {
-        name: name,
-        formats: ['iife'],
-        entry,
-        fileName: name,
-      },
-      outDir: resolve(rootDir, '..', '..', 'dist', 'content'),
-    },
-  }, { excludeWatchRebuildPlugin: true }),
+    { excludeWatchRebuildPlugin: true },
+  ),
 );
 
 const builds = configs.map(async config => {

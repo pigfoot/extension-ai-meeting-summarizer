@@ -578,6 +578,38 @@ export class EnhancedMutationObserver implements PageMonitor {
   }
 
   /**
+   * Simple observe method for compatibility with native MutationObserver API
+   */
+  observe(target: Element, options: MutationObserverInit, callback?: (mutations: MutationRecord[]) => void): void {
+    const observerId = `compat-${Date.now()}`;
+
+    this.observeElement(observerId, {
+      target,
+      options,
+      debounceDelay: 100,
+      callback: callback
+        ? changes => {
+            // Convert changes back to mutations for compatibility
+            const mutations = changes.map(change => ({
+              type:
+                change.type === 'content-added'
+                  ? 'childList'
+                  : change.type === 'navigation'
+                    ? 'attributes'
+                    : 'childList',
+              target: change.elements[0] || target,
+              addedNodes: change.type === 'content-added' ? change.elements : [],
+              removedNodes: change.type === 'content-removed' ? change.elements : [],
+              attributeName: change.type === 'navigation' ? 'href' : null,
+            })) as MutationRecord[];
+
+            callback(mutations);
+          }
+        : () => {},
+    });
+  }
+
+  /**
    * Update filters
    */
   updateFilters(filters: Partial<ChangeFilters>): void {
