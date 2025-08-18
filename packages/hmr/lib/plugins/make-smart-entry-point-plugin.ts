@@ -1,8 +1,8 @@
+import { createChromeExtensionAnalyzer } from '../analyzers/chrome-extension-analyzer.js';
 import { IS_FIREFOX } from '@extension/env';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { basename, resolve, sep } from 'node:path';
-import type { PluginOption } from 'vite';
-import { createChromeExtensionAnalyzer } from '../analyzers/chrome-extension-analyzer.js';
+import type { PluginOption, OutputChunk, OutputAsset } from 'vite';
 
 /**
  * Configuration options for Smart HMR
@@ -55,14 +55,11 @@ const safeWriteFileSync = (path: string, data: string) => {
  */
 const matchesPatterns = (fileName: string, patterns: string[]): boolean => {
   if (!patterns.length) return false;
-  
+
   return patterns.some(pattern => {
     // Convert glob-like pattern to regex
-    const regexPattern = pattern
-      .replace(/\*\*/g, '.*')
-      .replace(/\*/g, '[^/]*')
-      .replace(/\./g, '\\.');
-    
+    const regexPattern = pattern.replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*').replace(/\./g, '\\.');
+
     const regex = new RegExp(regexPattern);
     return regex.test(fileName);
   });
@@ -71,8 +68,7 @@ const matchesPatterns = (fileName: string, patterns: string[]): boolean => {
 /**
  * Generate page reload code for inline files
  */
-const generatePageReloadCode = (): string => {
-  return `
+const generatePageReloadCode = (): string => `
 // Smart HMR: Page reload mechanism for content scripts
 if (typeof window !== 'undefined' && window.location) {
   const hmrReloadKey = 'smart-hmr-reload-' + window.location.href;
@@ -99,12 +95,11 @@ if (typeof window !== 'undefined' && window.location) {
     }
   }
 }`;
-};
 
 /**
  * Apply inline strategy (no HMR, immediate execution)
  */
-const applyInlineStrategy = (module: any, outputDir: string, enablePageReload: boolean) => {
+const applyInlineStrategy = (module: OutputChunk, outputDir: string, enablePageReload: boolean) => {
   // Keep the code inline, no file separation
   let finalCode = module.code;
 
@@ -119,7 +114,7 @@ const applyInlineStrategy = (module: any, outputDir: string, enablePageReload: b
 /**
  * Apply HMR strategy (dynamic import for hot reloading)
  */
-const applyHMRStrategy = (module: any, outputDir: string) => {
+const applyHMRStrategy = (module: OutputChunk, outputDir: string) => {
   const fileName = module.fileName;
   const newFileName = fileName.replace('.js', '_dev.js');
   const newFileNameBase = basename(newFileName);
@@ -139,9 +134,9 @@ const applyHMRStrategy = (module: any, outputDir: string) => {
 /**
  * Handle asset modules (source maps, etc.)
  */
-const handleAssetModule = (module: any, outputDir: string) => {
+const handleAssetModule = (module: OutputAsset, outputDir: string) => {
   const fileName = module.fileName;
-  
+
   if (fileName.endsWith('.map')) {
     const originalFileName = fileName.replace('.map', '');
     const newFileName = originalFileName.replace('.js', '_dev.js');
@@ -212,9 +207,7 @@ export const makeSmartEntryPointPlugin = (options: SmartHMROptions = {}): Plugin
           }
 
           if (warnOnIncompatibility && !analysis.isHMRCompatible) {
-            console.warn(
-              `[Smart HMR] ${fileName}: HMR incompatible - ${analysis.reasons.join(', ')}`
-            );
+            console.warn(`[Smart HMR] ${fileName}: HMR incompatible - ${analysis.reasons.join(', ')}`);
           }
         }
 

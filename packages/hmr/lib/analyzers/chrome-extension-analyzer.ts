@@ -1,6 +1,6 @@
 /**
  * Chrome Extension HMR Compatibility Analyzer
- * 
+ *
  * Analyzes code to determine if it's compatible with Hot Module Replacement
  * or requires immediate synchronous execution (like Chrome Extension APIs)
  */
@@ -35,31 +35,31 @@ export class ChromeExtensionHMRAnalyzer implements HMRCompatibilityAnalyzer {
     /chrome\.runtime\.onInstalled\.addListener/g,
     /chrome\.runtime\.onSuspend\.addListener/g,
     /chrome\.runtime\.onUpdateAvailable\.addListener/g,
-    
+
     // Storage API patterns
     /chrome\.storage\.onChanged\.addListener/g,
     /chrome\.storage\.sync\.onChanged\.addListener/g,
     /chrome\.storage\.local\.onChanged\.addListener/g,
-    
+
     // Tabs API patterns
     /chrome\.tabs\.onCreated\.addListener/g,
     /chrome\.tabs\.onUpdated\.addListener/g,
     /chrome\.tabs\.onRemoved\.addListener/g,
     /chrome\.tabs\.onActivated\.addListener/g,
-    
+
     // Windows API patterns
     /chrome\.windows\.onCreated\.addListener/g,
     /chrome\.windows\.onRemoved\.addListener/g,
     /chrome\.windows\.onFocusChanged\.addListener/g,
-    
+
     // Notifications API patterns
     /chrome\.notifications\.onClicked\.addListener/g,
     /chrome\.notifications\.onClosed\.addListener/g,
-    
+
     // WebNavigation API patterns
     /chrome\.webNavigation\.onBeforeNavigate\.addListener/g,
     /chrome\.webNavigation\.onCompleted\.addListener/g,
-    
+
     // Content Script specific patterns
     /chrome\.runtime\.sendMessage/g,
     /chrome\.extension\.sendMessage/g,
@@ -69,13 +69,13 @@ export class ChromeExtensionHMRAnalyzer implements HMRCompatibilityAnalyzer {
     // Content script global assignments that must happen immediately
     /window\.\w+\s*=/g,
     /globalThis\.\w+\s*=/g,
-    
+
     // Document ready patterns that need immediate registration
     /document\.addEventListener\s*\(\s*['"]DOMContentLoaded['"]|['"]load['"]|['"]ready['"]/g,
-    
+
     // Window event patterns
     /window\.addEventListener\s*\(\s*['"]load['"]|['"]beforeunload['"]|['"]unload['"]/g,
-    
+
     // Manifest V3 specific patterns
     /chrome\.action\.onClicked\.addListener/g,
     /chrome\.contextMenus\.onClicked\.addListener/g,
@@ -86,11 +86,11 @@ export class ChromeExtensionHMRAnalyzer implements HMRCompatibilityAnalyzer {
     /export\s+(?:default\s+)?(?:function|const)\s+\w+.*(?:React\.FC|FunctionComponent|Component)/g,
     /import.*from\s+['"]react['"]/g,
     /useState|useEffect|useCallback|useMemo|useContext/g,
-    
+
     // JSX patterns
     /<\w+.*>/g,
     /jsx|tsx/g,
-    
+
     // CSS/Style patterns
     /import.*\.css['"];?$/gm,
     /import.*\.scss['"];?$/gm,
@@ -102,28 +102,28 @@ export class ChromeExtensionHMRAnalyzer implements HMRCompatibilityAnalyzer {
     const chromeAPIUsage = this.analyzeChromeAPIUsage(code);
     const hasImmediateExecution = this.hasImmediateExecutionRequirements(code);
     const hasUIComponents = this.hasUIComponentPatterns(code);
-    
+
     const reasons: string[] = [];
     let recommendedStrategy: 'inline' | 'dynamic-import' | 'hybrid' = 'dynamic-import';
-    
+
     // Determine if HMR is compatible
     const isHMRCompatible = !chromeAPIUsage.immediateExecutionRequired && !hasImmediateExecution;
-    
+
     if (chromeAPIUsage.immediateExecutionRequired) {
       reasons.push('Contains Chrome API listeners that require immediate execution');
       recommendedStrategy = 'inline';
     }
-    
+
     if (hasImmediateExecution) {
       reasons.push('Contains code patterns requiring immediate execution on script load');
       recommendedStrategy = 'inline';
     }
-    
+
     if (hasUIComponents && !chromeAPIUsage.immediateExecutionRequired) {
       reasons.push('Contains UI components that benefit from HMR');
       recommendedStrategy = isHMRCompatible ? 'dynamic-import' : 'hybrid';
     }
-    
+
     if (isHMRCompatible) {
       reasons.push('Code is compatible with Hot Module Replacement');
     }
@@ -152,7 +152,7 @@ export class ChromeExtensionHMRAnalyzer implements HMRCompatibilityAnalyzer {
       usage.immediateExecutionRequired = true;
     }
 
-    // Check for storage listeners  
+    // Check for storage listeners
     if (/chrome\.storage\..*\.onChanged\.addListener/.test(code)) {
       usage.hasStorageListeners = true;
       usage.immediateExecutionRequired = true;
@@ -207,6 +207,4 @@ export class ChromeExtensionHMRAnalyzer implements HMRCompatibilityAnalyzer {
 /**
  * Factory function to create analyzer instance
  */
-export function createChromeExtensionAnalyzer(): HMRCompatibilityAnalyzer {
-  return new ChromeExtensionHMRAnalyzer();
-}
+export const createChromeExtensionAnalyzer = (): HMRCompatibilityAnalyzer => new ChromeExtensionHMRAnalyzer();

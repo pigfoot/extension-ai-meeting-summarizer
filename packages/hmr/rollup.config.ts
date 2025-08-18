@@ -17,12 +17,13 @@ export default [
       file: 'dist/lib/injections/reload.js',
     },
   },
-  {
-    plugins,
-    input: 'lib/injections/refresh.ts',
-    output: {
-      format: 'esm',
-      file: 'dist/lib/injections/refresh.js',
-    },
-  },
+  // DISABLED: refresh.js build interferes with Chrome extension messaging
+  // {
+  //   plugins,
+  //   input: 'lib/injections/refresh.ts',
+  //   output: {
+  //     format: 'esm',
+  //     file: 'dist/lib/injections/refresh.js',
+  //   },
+  // },
 ] satisfies RollupOptions[];

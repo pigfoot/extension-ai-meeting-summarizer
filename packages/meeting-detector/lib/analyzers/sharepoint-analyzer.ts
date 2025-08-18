@@ -735,7 +735,7 @@ export class SharePointAnalyzer {
       const videoFormats = ['mp4', 'avi', 'wmv', 'mov', 'mkv', 'webm'];
       const audioFormats = ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac', 'wma'];
       const supportedFormats = [...videoFormats, ...audioFormats];
-      
+
       if (fileType && supportedFormats.includes(fileType.toLowerCase())) {
         const nameElement = element.querySelector('.ms-DocumentCard-name, .ms-Link');
         recordings.push({

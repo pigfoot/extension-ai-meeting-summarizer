@@ -8,7 +8,9 @@ import type { PluginOption } from 'vite';
 
 const injectionsPath = resolve(import.meta.dirname, '..', 'injections');
 
-const refreshCode = readFileSync(resolve(injectionsPath, 'refresh.js'), 'utf-8');
+// DISABLED: refresh.js injection interferes with Chrome extension messaging
+// const refreshCode = readFileSync(resolve(injectionsPath, 'refresh.js'), 'utf-8');
+const refreshCode = '';
 const reloadCode = readFileSync(resolve(injectionsPath, 'reload.js'), 'utf-8');
 
 export const watchRebuildPlugin = (config: PluginConfigType): PluginOption => {
