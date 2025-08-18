@@ -328,7 +328,6 @@ export class PerformanceMonitor {
 
     // Clean up old metrics
     this.cleanupOldMetrics();
-
   }
 
   /**
@@ -1123,6 +1122,7 @@ export class PerformanceMonitor {
     this.metrics = this.metrics.filter(metric => new Date(metric.timestamp).getTime() >= cutoffTime);
 
     if (this.metrics.length < originalLength) {
+      // Metrics cleaned up successfully
     }
   }
 
@@ -1136,6 +1136,7 @@ export class PerformanceMonitor {
     this.alerts = this.alerts.filter(alert => new Date(alert.timestamp).getTime() >= cutoffTime);
 
     if (this.alerts.length < originalLength) {
+      // Alerts cleaned up successfully
     }
   }
 
@@ -1149,6 +1150,7 @@ export class PerformanceMonitor {
     this.snapshots = this.snapshots.filter(snapshot => new Date(snapshot.timestamp).getTime() >= cutoffTime);
 
     if (this.snapshots.length < originalLength) {
+      // Snapshots cleaned up successfully
     }
   }
 

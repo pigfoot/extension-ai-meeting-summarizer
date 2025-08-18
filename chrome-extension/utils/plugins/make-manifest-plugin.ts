@@ -2,7 +2,7 @@ import { browserDetectUtils, getBrowserManifestAdjustments, checkBrowserCompatib
 import { ManifestParser } from '@extension/dev-utils';
 import { IS_DEV } from '@extension/env';
 import { colorfulLog } from '@extension/shared';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { platform } from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -11,20 +11,20 @@ import type { ManifestType } from '@extension/shared';
 import type { PluginOption } from 'vite';
 
 const manifestFile = resolve(import.meta.dirname, '..', '..', 'manifest.js');
-const refreshFilePath = resolve(
-  import.meta.dirname,
-  '..',
-  '..',
-  '..',
-  'packages',
-  'hmr',
-  'dist',
-  'lib',
-  'injections',
-  'refresh.js',
-);
+// const refreshFilePath = resolve(
+//   import.meta.dirname,
+//   '..',
+//   '..',
+//   '..',
+//   'packages',
+//   'hmr',
+//   'dist',
+//   'lib',
+//   'injections',
+//   'refresh.js',
+// );
 
-const withHMRId = (code: string) => `(function() {let __HMR_ID = 'chrome-extension-hmr';${code}\n})();`;
+// const withHMRId = (code: string) => `(function() {let __HMR_ID = 'chrome-extension-hmr';${code}\n})();`;
 
 /**
  * Environment variables for target browser detection
@@ -46,12 +46,14 @@ const getManifestWithCacheBurst = async () => {
   }
 };
 
-const addRefreshContentScript = (manifest: ManifestType) => {
-  manifest.content_scripts = manifest.content_scripts || [];
-  manifest.content_scripts.push({
-    matches: ['http://*/*', 'https://*/*', '<all_urls>'],
-    js: ['refresh.js'], // for public's HMR(refresh) support
-  });
+const addRefreshContentScript = (_manifest: ManifestType) => {
+  // DISABLED: refresh.js content script injection interferes with Chrome extension messaging
+  // Content scripts already use Smart HMR with inline strategy, no need for separate refresh.js injection
+  // manifest.content_scripts = manifest.content_scripts || [];
+  // manifest.content_scripts.push({
+  //   matches: ['http://*/*', 'https://*/*', '<all_urls>'],
+  //   js: ['refresh.js'], // for public's HMR(refresh) support
+  // });
 };
 
 /**
@@ -334,11 +336,12 @@ export default (config: {
       return;
     }
 
-    // Write HMR refresh script for development
-    if (IS_DEV) {
-      const refreshFileString = readFileSync(refreshFilePath, 'utf-8');
-      writeFileSync(resolve(to, 'refresh.js'), withHMRId(refreshFileString));
-    }
+    // DISABLED: HMR refresh script generation interferes with Chrome extension messaging
+    // Background scripts and content scripts already have Smart HMR built-in
+    // if (IS_DEV) {
+    //   const refreshFileString = readFileSync(refreshFilePath, 'utf-8');
+    //   writeFileSync(resolve(to, 'refresh.js'), withHMRId(refreshFileString));
+    // }
   };
 
   const makeMultipleBrowserManifests = async (baseManifest: ManifestType, outDir: string) => {

@@ -4,7 +4,7 @@
  */
 
 // Global error handler for Service Worker
-let globalErrorHandler: ((error: Error | string, context?: any) => void) | null = null;
+let globalErrorHandler: ((error: Error | string, context?: Record<string, unknown>) => void) | null = null;
 
 // Setup global error handlers immediately (required for Service Worker)
 globalThis.addEventListener('error', event => {
@@ -434,7 +434,6 @@ export class ErrorAggregator {
         Date.now() - startTime,
         this.stats.processingStats.processed,
       );
-
 
       return aggregatedError.errorId;
     } catch (processingError) {
@@ -1180,7 +1179,7 @@ export class ErrorAggregator {
    * Connect to global error handler (required for Service Worker)
    */
   private connectToGlobalErrorHandler(): void {
-    globalErrorHandler = (error: Error | string, context?: any) => {
+    globalErrorHandler = (error: Error | string, context?: Record<string, unknown>) => {
       this.recordError(error, {
         severity: context?.severity || 'high',
         category: context?.category || 'runtime',

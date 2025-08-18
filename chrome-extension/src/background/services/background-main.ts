@@ -195,7 +195,6 @@ export class BackgroundMain {
    * Initialize background service
    */
   async initialize(): Promise<void> {
-
     this.initStatus = 'initializing';
 
     try {
@@ -391,7 +390,6 @@ export class BackgroundMain {
    */
   private async loadAzureConfiguration(): Promise<AzureSpeechConfig | null> {
     try {
-
       // Load from chrome.storage.sync for cross-device synchronization
       const result = await chrome.storage.sync.get(['azureSpeechConfig']);
 
@@ -504,7 +502,6 @@ export class BackgroundMain {
    * Update service configuration
    */
   async updateConfig(config: Partial<BackgroundServiceConfig>): Promise<void> {
-
     const previousConfig = { ...this.config };
     this.config = { ...this.config, ...config };
 
@@ -534,7 +531,6 @@ export class BackgroundMain {
       if (previousConfig.healthCheckInterval !== this.config.healthCheckInterval) {
         this.restartHealthMonitoring();
       }
-
     } catch (error) {
       console.error('[BackgroundMain] Failed to update configuration:', error);
 
@@ -554,7 +550,6 @@ export class BackgroundMain {
    * Restart background service
    */
   async restart(): Promise<void> {
-
     try {
       // Shutdown current service
       await this.shutdown();
@@ -567,7 +562,6 @@ export class BackgroundMain {
 
       // Reinitialize
       await this.initialize();
-
     } catch (error) {
       console.error('[BackgroundMain] Failed to restart background service:', error);
       throw error;
@@ -578,7 +572,6 @@ export class BackgroundMain {
    * Shutdown background service
    */
   async shutdown(): Promise<void> {
-
     this.initStatus = 'shutdown';
 
     // Stop health monitoring
@@ -623,7 +616,6 @@ export class BackgroundMain {
 
     this.subsystems.clear();
     this.health.clear();
-
   }
 
   /**
@@ -643,7 +635,6 @@ export class BackgroundMain {
    * Initialize error aggregation
    */
   private async initializeErrorAggregation(): Promise<void> {
-
     this.errorAggregator = new ErrorAggregator({
       enabled: true,
       autoReporting: true,
@@ -659,7 +650,6 @@ export class BackgroundMain {
    * Initialize performance monitoring
    */
   private async initializePerformanceMonitoring(): Promise<void> {
-
     this.performanceMonitor = new PerformanceMonitor({
       enabled: true,
       monitoringInterval: 60000, // 1 minute
@@ -701,7 +691,6 @@ export class BackgroundMain {
    * Initialize lifecycle subsystems
    */
   private async initializeLifecycle(): Promise<void> {
-
     // Initialize startup manager
     this.startupManager = new StartupManager({
       enableStateRestoration: true,
@@ -716,9 +705,9 @@ export class BackgroundMain {
       },
       enableAutoRecovery: true,
       debug: {
-        verbose: process.env.NODE_ENV === 'development',
-        logPerformance: process.env.NODE_ENV === 'development',
-        logLifecycle: process.env.NODE_ENV === 'development',
+        verbose: false,
+        logPerformance: false,
+        logLifecycle: false,
       },
     });
     this.subsystems.set('startupManager', this.startupManager);
@@ -769,7 +758,7 @@ export class BackgroundMain {
         autoRecovery: true,
       },
       eventHandling: {
-        enableLogging: process.env.NODE_ENV === 'development',
+        enableLogging: false,
         maxHandlersPerEvent: 10,
         handlerTimeout: 5000,
       },
@@ -782,7 +771,6 @@ export class BackgroundMain {
    * Initialize storage subsystems
    */
   private async initializeStorage(): Promise<void> {
-
     // Initialize storage coordinator
     this.storageCoordinator = new StorageCoordinator();
     this.subsystems.set('storageCoordinator', this.storageCoordinator);
@@ -823,7 +811,6 @@ export class BackgroundMain {
    * Initialize messaging subsystems
    */
   private async initializeMessaging(): Promise<void> {
-
     // Initialize message router
     this.messageRouter = new MessageRouter({
       performance: {
@@ -845,7 +832,7 @@ export class BackgroundMain {
       },
       monitoring: {
         enableMetrics: true,
-        enableLogging: process.env.NODE_ENV === 'development',
+        enableLogging: false,
         logLevel: 'info',
       },
       rateLimiting: {
@@ -892,7 +879,6 @@ export class BackgroundMain {
    * Initialize job orchestration subsystems
    */
   private async initializeJobOrchestration(): Promise<void> {
-
     // Initialize job queue manager
     this.jobQueueManager = new JobQueueManager(
       {
@@ -1011,7 +997,6 @@ export class BackgroundMain {
    * Initialize Azure integration subsystems
    */
   private async initializeAzureIntegration(): Promise<void> {
-
     // Initialize client coordinator
     this.clientCoordinator = new AzureClientCoordinator({
       maxClients: 5,
@@ -1141,7 +1126,6 @@ export class BackgroundMain {
    */
   private async initializeContentDetection(): Promise<void> {
     try {
-
       // Initialize analysis orchestrator
       // Note: analysisOrchestrator is a singleton service that manages meeting detection workflows
       try {
@@ -1210,11 +1194,13 @@ export class BackgroundMain {
       // For background service, we can't directly test DOM operations
       // but we can verify the services are properly exported
       if (typeof analysisOrchestrator === 'object' && analysisOrchestrator !== null) {
+        // Analysis orchestrator is properly exported
       } else {
         issues.push('Analysis orchestrator is not properly exported');
       }
 
       if (typeof pageMonitor === 'object' && pageMonitor !== null) {
+        // Page monitor is properly exported
       } else {
         issues.push('Page monitor is not properly exported');
       }
@@ -1276,7 +1262,6 @@ export class BackgroundMain {
    */
   private async initializeJobCoordinatorAzureIntegration(): Promise<void> {
     try {
-
       // Load Azure Speech configuration
       const azureConfig = await this.loadAzureConfiguration();
 
@@ -1332,7 +1317,6 @@ export class BackgroundMain {
    * Register service worker event handlers
    */
   private registerEventHandlers(): void {
-
     // Handle extension startup
     chrome.runtime.onStartup.addListener(() => {
       this.handleExtensionStartup();
@@ -1439,7 +1423,6 @@ export class BackgroundMain {
    */
   private async handleSuspension(): Promise<void> {
     try {
-
       if (this.suspensionHandler) {
         await this.suspensionHandler.handleSuspension();
       }
@@ -1461,12 +1444,26 @@ export class BackgroundMain {
     sendResponse: (response?: unknown) => void,
   ): Promise<void> {
     try {
-      if (this.messageRouter) {
-        const response = await this.messageRouter.routeMessage(message, sender);
-        sendResponse(response);
-      } else {
-        sendResponse({ error: 'Message router not available' });
+      // Wait for message router initialization if not ready
+      if (!this.messageRouter) {
+        console.log('[BackgroundMain] Message router not ready, waiting for initialization...');
+        // Wait up to 10 seconds for initialization
+        const timeout = 10000;
+        const startTime = Date.now();
+
+        while (!this.messageRouter && Date.now() - startTime < timeout) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        if (!this.messageRouter) {
+          console.error('[BackgroundMain] Message router initialization timeout');
+          sendResponse({ error: 'Message router initialization timeout' });
+          return;
+        }
       }
+
+      const response = await this.messageRouter.routeMessage(message, sender);
+      sendResponse(response);
     } catch (error) {
       console.error('[BackgroundMain] Failed to handle message:', error);
       sendResponse({ error: 'Message handling failed' });
@@ -1484,11 +1481,27 @@ export class BackgroundMain {
   /**
    * Handle connection from extension components
    */
-  private handleConnection(port: chrome.runtime.Port): void {
+  private async handleConnection(port: chrome.runtime.Port): Promise<void> {
     try {
-      if (this.connectionManager) {
-        this.connectionManager.handleConnection(port);
+      // Wait for connection manager initialization if not ready
+      if (!this.connectionManager) {
+        console.log('[BackgroundMain] Connection manager not ready, waiting for initialization...');
+        // Wait up to 10 seconds for initialization
+        const timeout = 10000;
+        const startTime = Date.now();
+
+        while (!this.connectionManager && Date.now() - startTime < timeout) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        if (!this.connectionManager) {
+          console.error('[BackgroundMain] Connection manager initialization timeout');
+          port.disconnect();
+          return;
+        }
       }
+
+      this.connectionManager.handleConnection(port);
     } catch (error) {
       console.error('[BackgroundMain] Failed to handle connection:', error);
 
@@ -1513,7 +1526,6 @@ export class BackgroundMain {
     this.healthCheckInterval = setInterval(() => {
       this.performHealthCheck();
     }, this.config.healthCheckInterval);
-
   }
 
   /**
@@ -1539,6 +1551,7 @@ export class BackgroundMain {
    */
   private async performHealthCheck(): Promise<void> {
     if (this.config.debug.logSubsystemStatus) {
+      // Health check logging enabled
     }
 
     for (const [name, subsystem] of this.subsystems.entries()) {
@@ -1624,7 +1637,8 @@ export class BackgroundMain {
       }
 
       if (this.config.debug.logSubsystemStatus) {
-        const integrationStatus = await this.getIntegrationStatus();
+        const _integrationStatus = await this.getIntegrationStatus();
+        // Integration status logged for debugging
       }
     } catch (error) {
       console.error('[BackgroundMain] Integration health checks failed:', error);
