@@ -5,7 +5,7 @@
  * and real-time updates. Manages popup interface state and data.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type {
   PopupState,
   PopupView,
@@ -367,33 +367,33 @@ export const usePopupState = (options: UsePopupStateOptions = {}) => {
   );
 
   // State actions
-  const actions: PopupStateActions = {
-    updateJobs: useCallback((jobs: JobDisplayInfo[]) => {
-      setState(prev => ({ ...prev, activeJobs: jobs, lastUpdate: new Date() }));
-    }, []),
+  const actions: PopupStateActions = useMemo(
+    () => ({
+      updateJobs: (jobs: JobDisplayInfo[]) => {
+        setState(prev => ({ ...prev, activeJobs: jobs, lastUpdate: new Date() }));
+      },
 
-    updateMeetings: useCallback((meetings: MeetingRecord[]) => {
-      setState(prev => ({ ...prev, recentMeetings: meetings, lastUpdate: new Date() }));
-    }, []),
+      updateMeetings: (meetings: MeetingRecord[]) => {
+        setState(prev => ({ ...prev, recentMeetings: meetings, lastUpdate: new Date() }));
+      },
 
-    setView: useCallback((view: PopupView) => {
-      setState(prev => ({ ...prev, currentView: view }));
-    }, []),
+      setView: (view: PopupView) => {
+        setState(prev => ({ ...prev, currentView: view }));
+      },
 
-    setConnectionStatus: useCallback((status: ConnectionStatus) => {
-      setState(prev => ({ ...prev, connectionStatus: status, lastUpdate: new Date() }));
-    }, []),
+      setConnectionStatus: (status: ConnectionStatus) => {
+        setState(prev => ({ ...prev, connectionStatus: status, lastUpdate: new Date() }));
+      },
 
-    setError: useCallback((error: PopupError | null) => {
-      setState(prev => ({ ...prev, error: error || undefined }));
-    }, []),
+      setError: (error: PopupError | null) => {
+        setState(prev => ({ ...prev, error: error || undefined }));
+      },
 
-    setLoading: useCallback((loading: boolean) => {
-      setState(prev => ({ ...prev, isLoading: loading }));
-    }, []),
+      setLoading: (loading: boolean) => {
+        setState(prev => ({ ...prev, isLoading: loading }));
+      },
 
-    updatePreferences: useCallback(
-      async (preferences: Partial<UIPreferences>) => {
+      updatePreferences: async (preferences: Partial<UIPreferences>) => {
         try {
           await backgroundService.current.updatePreferences(preferences);
           setState(prev => ({
@@ -412,17 +412,17 @@ export const usePopupState = (options: UsePopupStateOptions = {}) => {
           onError?.(popupError);
         }
       },
-      [onError],
-    ),
 
-    selectMeeting: useCallback((meeting: MeetingRecord | null) => {
-      setState(prev => ({ ...prev, selectedMeeting: meeting || undefined }));
-    }, []),
+      selectMeeting: (meeting: MeetingRecord | null) => {
+        setState(prev => ({ ...prev, selectedMeeting: meeting || undefined }));
+      },
 
-    refreshData: useCallback(async () => {
-      await loadInitialData();
-    }, [loadInitialData]),
-  };
+      refreshData: async () => {
+        await loadInitialData();
+      },
+    }),
+    [loadInitialData, onError],
+  );
 
   // Job actions
   const jobActions: JobActions = {
@@ -537,7 +537,8 @@ export const usePopupState = (options: UsePopupStateOptions = {}) => {
   // Memory monitoring (if enabled)
   useEffect(() => {
     if (enablePerformanceMonitoring && 'memory' in performance) {
-      performanceRef.current.memoryUsage = (performance as { memory?: { usedJSHeapSize?: number } }).memory?.usedJSHeapSize || 0;
+      performanceRef.current.memoryUsage =
+        (performance as { memory?: { usedJSHeapSize?: number } }).memory?.usedJSHeapSize || 0;
     }
   });
 

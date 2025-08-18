@@ -10,13 +10,10 @@ import { backgroundCoordinator } from './communication/background-coordinator';
 import { browserCompatibility } from './compat/browser-compat';
 import { componentRegistry } from './components/ComponentRegistry';
 import { featureActivationManager } from './features/feature-activation';
-// Unused imports commented out for now
-// import { injectionController } from './injection/injection-controller';
 import { pageMonitor } from './pages/page-monitor';
 import { pageRouter } from './pages/page-router';
-// import { domManipulator } from './utils/dom-utils';
 import { eventManager } from './utils/event-manager';
-// import { mutationObserver } from './utils/mutation-observer';
+import { IS_DEV } from '@extension/env';
 
 /**
  * Content script initialization state
@@ -399,11 +396,11 @@ export class ContentScript {
     });
 
     // Setup page change handler
-    const unsubscribe = pageMonitor.onPageChange(change => {
+    const unsubscribe = pageMonitor.onContentChange(change => {
       this.log(`Page change detected: ${change.type}`);
 
       // Re-analyze content on significant changes
-      if (change.severity === 'major') {
+      if (change.significance === 'high' || change.significance === 'critical') {
         this.activateFeatures().catch(error => {
           this.handleError('Feature reactivation failed', error);
         });
@@ -704,15 +701,16 @@ export class ContentScript {
   /**
    * Log debug message
    */
-  private log(message: string): void {
+  private log(_message: string): void {
     if (this.config.enableDebugLogging) {
+      // Debug logging implementation would go here
     }
   }
 }
 
 // Create and export the main content script instance
 export const contentScript = ContentScript.getInstance({
-  enableDebugLogging: process.env.NODE_ENV === 'development',
+  enableDebugLogging: IS_DEV,
   autoInitialize: true,
 });
 
@@ -770,19 +768,19 @@ export const contentScriptUtils = {
   shutdown: (): Promise<void> => contentScript.shutdown(),
 };
 
-// Global exposure for debugging in development
-if (process.env.NODE_ENV === 'development') {
-  interface WindowWithDebug extends Window {
-    contentScript?: unknown;
-    contentScriptUtils?: unknown;
-  }
+// Global exposure for debugging and testing (development mode only)
+interface WindowWithDebug extends Window {
+  contentScript?: unknown;
+  contentScriptUtils?: unknown;
+}
+
+if (IS_DEV) {
   (window as WindowWithDebug).contentScript = contentScript;
   (window as WindowWithDebug).contentScriptUtils = contentScriptUtils;
 }
 
 // Setup message handling for background service communication
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-
   if (message.type === 'DETECT_MEETING_CONTENT') {
     // Handle content detection request
     handleContentDetection(message, sender, sendResponse);
@@ -796,9 +794,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 /**
  * Handle content detection request from background service
  */
-async function handleContentDetection(message: any, sender: any, sendResponse: (response: any) => void) {
+const handleContentDetection = async (
+  message: { type: string; tabId?: number; url?: string },
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response: unknown) => void,
+) => {
   try {
-
     // Ensure content script is initialized
     if (!contentScript.isReady()) {
       await contentScript.initialize();
@@ -807,14 +808,36 @@ async function handleContentDetection(message: any, sender: any, sendResponse: (
     // Use content analyzer to detect meeting content
     const analysis = await contentAnalyzer.analyzeContent();
 
+    // Debug logging for analysis results
+    console.log('[ContentScript] Content analysis results:', {
+      meetingConfidence: analysis.meetingConfidence,
+      contentType: analysis.contentType,
+      meetingIndicators: analysis.meetingIndicators,
+      elements: {
+        video: analysis.elements.video.length,
+        audio: analysis.elements.audio.length,
+        controls: analysis.elements.controls.length,
+        participants: analysis.elements.participants.length,
+        recording: analysis.elements.transcript.length,
+      },
+      context: analysis.context,
+      pageUrl: window.location.href,
+      pageTitle: document.title,
+    });
 
     // Check if this is a meeting page with sufficient confidence
     if (analysis.meetingConfidence < 0.3) {
+      console.log('[ContentScript] Low meeting confidence detected:', analysis.meetingConfidence);
       sendResponse({
         success: false,
         error: 'Page does not appear to contain meeting content',
-        details: 'Content analysis indicates low meeting confidence',
+        details: `Content analysis indicates low meeting confidence: ${analysis.meetingConfidence}`,
         analysis: analysis,
+        debug: {
+          pageUrl: window.location.href,
+          pageTitle: document.title,
+          meetingIndicators: analysis.meetingIndicators,
+        },
       });
       return;
     }
@@ -858,12 +881,12 @@ async function handleContentDetection(message: any, sender: any, sendResponse: (
       stack: error instanceof Error ? error.stack : undefined,
     });
   }
-}
+};
 
 /**
  * Detect media URLs on the current page
  */
-async function detectMediaUrls(): Promise<string[]> {
+const detectMediaUrls = async (): Promise<string[]> => {
   const mediaUrls: string[] = [];
 
   try {
@@ -918,13 +941,13 @@ async function detectMediaUrls(): Promise<string[]> {
     console.error('[ContentScript] Error detecting media URLs:', error);
     return [];
   }
-}
+};
 
 /**
  * Extract meeting metadata from the current page
  */
-function extractMeetingMetadata(): any {
-  const metadata: any = {
+const extractMeetingMetadata = (): Record<string, unknown> => {
+  const metadata: Record<string, unknown> = {
     title: document.title,
     url: window.location.href,
     timestamp: new Date().toISOString(),
@@ -968,7 +991,7 @@ function extractMeetingMetadata(): any {
   }
 
   return metadata;
-}
+};
 
 // Automatic cleanup on page unload
 window.addEventListener('beforeunload', () => {

@@ -1153,7 +1153,7 @@ export class TeamsPageHandler {
   /**
    * Handle layout change
    */
-  private handleLayoutChange(change: { type: string; target?: Element }): void {
+  private handleLayoutChange(_change: { type: string; target?: Element }): void {
     // Emit layout change event for components to adapt
     // TODO: Implement layout change handling
   }
