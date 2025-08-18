@@ -162,7 +162,6 @@ export class SyncCoordinator {
     const startTime = Date.now();
 
     try {
-
       // Create sync event
       const syncEvent = this.createSyncEvent(dataType, key, data, operation);
 
@@ -190,7 +189,6 @@ export class SyncCoordinator {
    */
   async handleSyncEvent(event: SyncEvent): Promise<void> {
     try {
-
       // Check for conflicts
       const conflict = await this.detectConflict(event);
 
@@ -272,7 +270,6 @@ export class SyncCoordinator {
 
       result.success = true;
       this.stats.conflictsResolved++;
-
     } catch (error) {
       result.success = false;
       result.warnings = [error instanceof Error ? error.message : String(error)];
@@ -333,7 +330,6 @@ export class SyncCoordinator {
       for (const key of keysToDelete) {
         this.syncDataStore.delete(key);
       }
-
     } else {
       // Clear all data
       this.syncDataStore.clear();
@@ -358,14 +354,12 @@ export class SyncCoordinator {
         this.startPeriodicSync();
       }
     }
-
   }
 
   /**
    * Shutdown sync coordinator
    */
   async shutdown(): Promise<void> {
-
     this.stopPeriodicSync();
 
     // Flush any pending batch operations
@@ -379,7 +373,6 @@ export class SyncCoordinator {
 
     this.batchOperations.clear();
     this.pendingConflicts.clear();
-
   }
 
   /**
@@ -443,7 +436,6 @@ export class SyncCoordinator {
         break;
       }
     }
-
   }
 
   /**
@@ -678,7 +670,6 @@ export class SyncCoordinator {
     this.syncInterval = setInterval(() => {
       this.performPeriodicSync();
     }, this.config.options.batchInterval);
-
   }
 
   /**
@@ -709,7 +700,6 @@ export class SyncCoordinator {
    * Process batch operations
    */
   private async processBatchOperations(batchId: string, operations: SyncEvent[]): Promise<void> {
-
     for (const operation of operations) {
       try {
         await this.handleSyncEvent(operation);

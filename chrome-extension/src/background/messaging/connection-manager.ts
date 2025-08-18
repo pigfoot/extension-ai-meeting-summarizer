@@ -139,7 +139,6 @@ export class ConnectionManager {
     const componentId = registration.componentId;
 
     try {
-
       // Check if already connected
       const existingConnection = this.connections.get(componentId);
       if (existingConnection && existingConnection.state === 'connected') {
@@ -175,7 +174,6 @@ export class ConnectionManager {
       // Update statistics
       this.updateConnectionStats('connected', registration.type);
 
-
       return connection;
     } catch (error) {
       console.error(`[ConnectionManager] Failed to connect to ${componentId}:`, error);
@@ -204,7 +202,6 @@ export class ConnectionManager {
     }
 
     try {
-
       // Update connection state
       connection.state = 'disconnecting';
 
@@ -239,7 +236,6 @@ export class ConnectionManager {
 
       // Update statistics
       this.updateConnectionStats('disconnected', connection.componentType);
-
     } catch (error) {
       console.error(`[ConnectionManager] Error disconnecting from ${componentId}:`, error);
       throw error;
@@ -329,6 +325,28 @@ export class ConnectionManager {
       // Update last activity
       connection.lastActivity = new Date().toISOString();
 
+      // Handle specific message types
+      if (envelope.type === 'health.check') {
+        // Respond to health check immediately
+        const response = {
+          success: true,
+          data: {
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            connectionId: connection.id,
+            componentId,
+          },
+          metadata: {
+            correlationId: envelope.metadata?.correlationId,
+            source: 'background-service',
+          },
+        };
+
+        if (connection.port) {
+          connection.port.postMessage(response);
+        }
+      }
+
       // Emit message received event
       this.emitConnectionEvent({
         type: 'message_received',
@@ -347,6 +365,88 @@ export class ConnectionManager {
       this.stats.totalMessages++;
     } catch (error) {
       console.error(`[ConnectionManager] Error handling incoming message from ${componentId}:`, error);
+    }
+  }
+
+  /**
+   * Handle incoming port connection from chrome.runtime.onConnect
+   */
+  handleConnection(port: chrome.runtime.Port): void {
+    try {
+      // Extract component info from port name
+      const componentId = port.name || `unknown-${Date.now()}`;
+      const componentType: ComponentType = port.name === 'content-script' ? 'content_script' : 'popup';
+
+      console.log(`[ConnectionManager] Handling new connection: ${componentId} (${componentType})`);
+
+      // Create connection object
+      const connection: Connection = {
+        id: `conn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        componentId,
+        componentType,
+        state: 'connected',
+        port,
+        tabId: port.sender?.tab?.id,
+        windowId: port.sender?.tab?.windowId,
+        frameId: port.sender?.frameId,
+        connectedAt: new Date().toISOString(),
+        lastActivity: new Date().toISOString(),
+        messageCount: 0,
+        metadata: {
+          userAgent: 'unknown',
+        },
+      };
+
+      // Store connection
+      this.connections.set(componentId, connection);
+
+      // Initialize health tracking
+      this.initializeConnectionHealth(componentId, componentType);
+
+      // Set up port event listeners
+      port.onMessage.addListener(message => {
+        this.handleIncomingMessage(componentId, message);
+      });
+
+      port.onDisconnect.addListener(() => {
+        console.log(`[ConnectionManager] Port disconnected: ${componentId}`);
+        connection.state = 'disconnected';
+        connection.disconnectedAt = new Date().toISOString();
+
+        // Clean up
+        this.stopHeartbeat(componentId);
+        this.connections.delete(componentId);
+        this.connectionHealth.delete(componentId);
+
+        // Emit disconnect event
+        this.emitConnectionEvent({
+          type: 'disconnected',
+          componentId,
+          componentType,
+          timestamp: new Date().toISOString(),
+        });
+      });
+
+      // Start heartbeat monitoring
+      this.startHeartbeat(componentId);
+
+      // Emit connection event
+      this.emitConnectionEvent({
+        type: 'connected',
+        componentId,
+        componentType,
+        timestamp: new Date().toISOString(),
+        data: {
+          connectionId: connection.id,
+        },
+      });
+
+      // Update statistics
+      this.updateConnectionStats('connected', componentType);
+
+      console.log(`[ConnectionManager] Successfully handled connection: ${componentId}`);
+    } catch (error) {
+      console.error('[ConnectionManager] Error handling connection:', error);
     }
   }
 
@@ -418,14 +518,12 @@ export class ConnectionManager {
         this.startHealthChecking();
       }
     }
-
   }
 
   /**
    * Shutdown connection manager
    */
   async shutdown(): Promise<void> {
-
     // Stop health checking
     this.stopHealthChecking();
 
@@ -449,7 +547,6 @@ export class ConnectionManager {
       clearInterval(interval);
     }
     this.heartbeatIntervals.clear();
-
   }
 
   /**
@@ -674,7 +771,6 @@ export class ConnectionManager {
    * Attempt to reconnect to a component
    */
   private async attemptReconnection(componentId: string): Promise<void> {
-
     try {
       // First disconnect cleanly
       await this.disconnect(componentId);
@@ -740,7 +836,6 @@ export class ConnectionManager {
     this.healthCheckInterval = setInterval(() => {
       this.performHealthChecks();
     }, this.config.healthCheck.interval);
-
   }
 
   /**

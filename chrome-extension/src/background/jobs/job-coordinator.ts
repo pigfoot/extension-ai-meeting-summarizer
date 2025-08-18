@@ -695,7 +695,7 @@ export class JobCoordinator implements JobOrchestrator {
   private async handleAzureSpeechError(
     error: unknown,
     jobId: string,
-    request: CreateTranscriptionJobRequest,
+    _request: CreateTranscriptionJobRequest,
   ): Promise<AzureSpeechError> {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.log(`[JobCoordinator] Analyzing Azure Speech error for job ${jobId}: ${errorMessage}`);
@@ -895,7 +895,7 @@ export class JobCoordinator implements JobOrchestrator {
   /**
    * Update progress based on Azure Speech API status
    */
-  private updateProgressFromAzureStatus(localJobId: string, azureStatus: any): void {
+  private updateProgressFromAzureStatus(localJobId: string, azureStatus: Record<string, unknown>): void {
     const stageMapping: Record<string, { progress: number; stage: string }> = {
       notStarted: { progress: 25, stage: 'azure_queued' },
       running: { progress: 50, stage: 'azure_processing' },

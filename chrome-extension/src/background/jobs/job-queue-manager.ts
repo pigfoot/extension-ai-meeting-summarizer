@@ -175,7 +175,6 @@ export class JobQueueManager {
    */
   async getNextJob(): Promise<OrchestrationJob | null> {
     try {
-
       // Check if we can process more jobs
       if (!this.canProcessMoreJobs()) {
         return null;
@@ -215,7 +214,6 @@ export class JobQueueManager {
           apiQuota: allocation.apiQuota,
           processingSlots: allocation.processingSlots,
         };
-
       }
 
       return nextJob;
@@ -272,7 +270,6 @@ export class JobQueueManager {
 
       operationResult.success = true;
       operationResult.message = 'Job completed successfully';
-
     } catch (error) {
       operationResult.message = error instanceof Error ? error.message : String(error);
       console.error(`[JobQueueManager] Failed to complete job ${jobId}:`, error);
@@ -339,7 +336,6 @@ export class JobQueueManager {
 
       // Update metrics
       this.updateQueueMetrics();
-
     } catch (processingError) {
       operationResult.message = processingError instanceof Error ? processingError.message : String(processingError);
       console.error(`[JobQueueManager] Failed to handle job failure for ${jobId}:`, processingError);
@@ -591,14 +587,12 @@ export class JobQueueManager {
       const baseMemory = this.config.processingLimits.maxMemoryPerJob;
       const requiredMemory = Math.min(baseMemory * priorityMultiplier, this.config.processingLimits.maxMemoryPerJob);
 
-
       // Check if resources are available
       const memoryAvailable =
         this.state.resourceUsage.memoryUsage + requiredMemory <= this.config.processingLimits.maxTotalMemory;
       const slotsAvailable =
         this.state.resourceUsage.usedProcessingSlots < this.config.processingLimits.maxConcurrentJobs;
       const apiAvailable = this.state.resourceUsage.activeAPICalls < this.config.processingLimits.maxAPICallsPerMinute;
-
 
       if (memoryAvailable && slotsAvailable && apiAvailable) {
         allocation.allocated = true;
@@ -721,7 +715,6 @@ export class JobQueueManager {
     this.processingInterval = setInterval(() => {
       this.processNextJobs();
     }, this.schedulerConfig.schedulingInterval);
-
   }
 
   /**

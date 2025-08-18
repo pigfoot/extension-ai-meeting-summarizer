@@ -3,7 +3,7 @@
  * Implements MessageRouter with component registration, routing, and conflict prevention
  */
 
-import { analysisOrchestrator, sharePointAnalyzer, mediaUrlScanner } from '@extension/meeting-detector';
+// import { analysisOrchestrator } from '@extension/meeting-detector';
 import type {
   MessageRouter as IMessageRouter,
   ComponentRegistration,
@@ -16,7 +16,7 @@ import type {
   MessagePriority,
   RoutingRule,
 } from '../types';
-import type { MeetingDetection, AudioUrlInfo } from '@extension/meeting-detector';
+import type { AudioUrlInfo } from '@extension/meeting-detector';
 
 // Import meeting detection capabilities
 
@@ -87,7 +87,6 @@ export class MessageRouter implements IMessageRouter {
         lastActivity: new Date().toISOString(),
       });
 
-
       // Update metrics
       this.updateComponentMetrics();
     } catch (error) {
@@ -121,7 +120,6 @@ export class MessageRouter implements IMessageRouter {
 
       // Remove pending messages for this component
       this.messageQueue = this.messageQueue.filter(msg => msg.target.componentId !== componentId);
-
 
       // Update metrics
       this.updateComponentMetrics();
@@ -168,7 +166,6 @@ export class MessageRouter implements IMessageRouter {
       // Update metrics
       this.updateRoutingMetrics(envelope.type, Date.now() - startTime, true);
 
-
       return envelope.messageId;
     } catch (error) {
       this.updateRoutingMetrics(envelope.type, Date.now() - startTime, false);
@@ -198,7 +195,6 @@ export class MessageRouter implements IMessageRouter {
         createdAt: new Date().toISOString(),
       });
 
-
       return subscription.subscriptionId;
     } catch (error) {
       console.error(`[MessageRouter] Failed to create subscription ${subscription.subscriptionId}:`, error);
@@ -218,7 +214,6 @@ export class MessageRouter implements IMessageRouter {
       }
 
       this.subscriptions.delete(subscriptionId);
-
     } catch (error) {
       console.error(`[MessageRouter] Failed to unsubscribe ${subscriptionId}:`, error);
       throw error;
@@ -240,7 +235,6 @@ export class MessageRouter implements IMessageRouter {
       };
 
       await this.sendMessage(broadcastMessage);
-
     } catch (error) {
       console.error(`[MessageRouter] Failed to broadcast message ${message.messageId}:`, error);
       throw error;
@@ -274,20 +268,18 @@ export class MessageRouter implements IMessageRouter {
       this.stopMessageProcessing();
       this.startMessageProcessing();
     }
-
   }
 
   /**
    * Flush pending messages
    */
   async flushMessages(): Promise<void> {
-    const pendingCount = this.messageQueue.length;
+    const _pendingCount = this.messageQueue.length;
 
     try {
       while (this.messageQueue.length > 0) {
         await this.processNextMessage();
       }
-
     } catch (error) {
       console.error('[MessageRouter] Error flushing messages:', error);
       throw error;
@@ -298,7 +290,6 @@ export class MessageRouter implements IMessageRouter {
    * Shutdown the message router
    */
   async shutdown(): Promise<void> {
-
     // Stop message processing
     this.stopMessageProcessing();
 
@@ -314,7 +305,6 @@ export class MessageRouter implements IMessageRouter {
     this.subscriptions.clear();
     this.messageQueue = [];
     this.rateLimiters.clear();
-
   }
 
   /**
@@ -489,6 +479,7 @@ export class MessageRouter implements IMessageRouter {
         }
 
         if (rule.actions.logRouting) {
+          // Log routing action implementation would go here
         }
       }
     }
@@ -743,7 +734,6 @@ export class MessageRouter implements IMessageRouter {
     this.processingInterval = setInterval(async () => {
       await this.processMessageBatch();
     }, this.config.performance.processingInterval);
-
   }
 
   /**
@@ -914,24 +904,23 @@ export class MessageRouter implements IMessageRouter {
   /**
    * Set background main reference for accessing other services
    */
-  setBackgroundMain(backgroundMain: any): void {
+  setBackgroundMain(backgroundMain: unknown): void {
     this.backgroundMain = backgroundMain;
   }
 
-  private backgroundMain: any;
+  private backgroundMain: unknown;
 
   /**
    * Route message from chrome runtime
    */
-  async routeMessage(message: unknown, sender: chrome.runtime.MessageSender): Promise<unknown> {
+  async routeMessage(message: unknown, _sender: chrome.runtime.MessageSender): Promise<unknown> {
     try {
-
       // Basic message validation
       if (!message || typeof message !== 'object') {
         throw new Error('Invalid message format');
       }
 
-      const msg = message as any;
+      const msg = message as Record<string, unknown>;
 
       // Handle different message types
       switch (msg.type) {
@@ -958,6 +947,24 @@ export class MessageRouter implements IMessageRouter {
         case 'GET_RECENT_MEETINGS':
           return await this.handleGetRecentMeetings();
 
+        case 'health.check':
+          return {
+            success: true,
+            data: {
+              status: 'healthy',
+              timestamp: new Date().toISOString(),
+              services: {
+                messageRouter: true,
+                backgroundMain: !!this.backgroundMain,
+                jobCoordinator: !!this.backgroundMain?.getSubsystem('jobCoordinator'),
+              },
+            },
+            metadata: {
+              correlationId: msg.metadata?.correlationId,
+              source: 'background-service',
+            },
+          };
+
         default:
           console.warn('[MessageRouter] Unknown message type:', msg.type);
           return {
@@ -977,9 +984,8 @@ export class MessageRouter implements IMessageRouter {
   /**
    * Handle start audio capture request
    */
-  private async handleStartAudioCapture(msg: any): Promise<unknown> {
+  private async handleStartAudioCapture(msg: { audioUrl?: string; source?: string }): Promise<unknown> {
     try {
-
       if (!this.backgroundMain) {
         console.error('[MessageRouter] Background service not available');
         throw new Error('Background service not available');
@@ -1000,7 +1006,7 @@ export class MessageRouter implements IMessageRouter {
 
       // Step 1: Detect content using meeting-detector with detailed progress tracking
       let audioUrl: string;
-      let meetingMetadata: any = {};
+      let meetingMetadata: Record<string, unknown> = {};
 
       try {
         // Phase 1: Initialize content detection
@@ -1032,7 +1038,6 @@ export class MessageRouter implements IMessageRouter {
         // Phase 4: Select best quality URL
         audioUrl = this.selectBestAudioUrl(detectionResults.audioUrls);
         meetingMetadata = detectionResults.metadata || {};
-
       } catch (detectionError) {
         console.error('[MessageRouter] Content detection failed:', detectionError);
 
@@ -1150,16 +1155,11 @@ export class MessageRouter implements IMessageRouter {
         },
       };
 
-
       // Submit job to queue
-      const enqueueResult = await jobQueueManager.enqueueJob(job);
+      await jobQueueManager.enqueueJob(job);
 
       // Start tracking the job
       jobTracker.startTracking(job);
-
-      // Verify job was added
-      const allJobs = jobTracker.getAllJobs();
-
 
       return {
         success: true,
@@ -1179,7 +1179,7 @@ export class MessageRouter implements IMessageRouter {
 
       // Handle structured error objects from content detection
       if (error && typeof error === 'object' && 'type' in error) {
-        const structuredError = error as any;
+        const structuredError = error as Record<string, unknown>;
         return {
           success: false,
           error: structuredError.error || 'Content detection failed',
@@ -1209,7 +1209,7 @@ export class MessageRouter implements IMessageRouter {
   /**
    * Handle stop audio capture request
    */
-  private async handleStopAudioCapture(msg: any): Promise<unknown> {
+  private async handleStopAudioCapture(msg: { jobId?: string }): Promise<unknown> {
     try {
       if (!this.backgroundMain) {
         throw new Error('Background service not available');
@@ -1250,15 +1250,14 @@ export class MessageRouter implements IMessageRouter {
         const allJobs = jobTracker.getAllJobs();
 
         const activeJobs = allJobs.filter(
-          (job: any) =>
-            job.executionContext.status === 'processing' ||
-            job.executionContext.status === 'queued' ||
-            job.executionContext.status === 'paused',
+          (job: Record<string, unknown>) =>
+            job.executionContext?.status === 'processing' ||
+            job.executionContext?.status === 'queued' ||
+            job.executionContext?.status === 'paused',
         );
 
-
         // Convert to popup-friendly format
-        const formattedJobs = activeJobs.map((job: any) => {
+        const formattedJobs = activeJobs.map((job: Record<string, unknown>) => {
           const progress = jobTracker.getJobProgress(job.jobId);
           const formatted = {
             id: job.jobId,
