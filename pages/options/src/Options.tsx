@@ -4,8 +4,9 @@ import { t } from '@extension/i18n';
 import { PROJECT_URL_OBJECT, useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
 import { exampleThemeStorage } from '@extension/storage';
 import { cn, ErrorDisplay, LoadingSpinner, ToggleButton } from '@extension/ui';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { AzureSpeechConfig } from '@extension/shared/lib/types/azure';
+import { chromeStorageService } from './services/chrome-storage-service';
 
 type OptionsTab = 'general' | 'azure' | 'advanced';
 
@@ -14,6 +15,7 @@ const Options = () => {
   const [activeTab, setActiveTab] = useState<OptionsTab>('azure');
   const [azureConfig, setAzureConfig] = useState<AzureSpeechConfig | undefined>();
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const logo = isLight ? 'options/logo_horizontal.svg' : 'options/logo_horizontal_dark.svg';
 
@@ -25,24 +27,42 @@ const Options = () => {
     { id: 'advanced', name: 'Advanced', description: 'Advanced configuration options' },
   ];
 
+  // Load Azure configuration on component mount
+  useEffect(() => {
+    const loadAzureConfig = async () => {
+      try {
+        console.log('[Options] Loading Azure configuration...');
+        const config = await chromeStorageService.loadConfig();
+        setAzureConfig(config);
+        console.log('[Options] Azure configuration loaded:', config);
+      } catch (error) {
+        console.error('[Options] Failed to load Azure configuration:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadAzureConfig();
+  }, []);
+
   /**
    * Handle Azure configuration save
    */
   const handleAzureConfigSave = async (config: AzureSpeechConfig) => {
     setIsSaving(true);
     try {
-      // In real implementation, this would save to secure storage
-      console.log('Saving Azure config:', config);
-
-      // Simulate save delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
+      console.log('[Options] Saving Azure config to Chrome storage:', config);
+      
+      // Save to Chrome storage using the real storage service
+      await chromeStorageService.saveConfig(config);
+      
       setAzureConfig(config);
 
       // Show success message (could use a toast notification)
-      console.log('Azure configuration saved successfully');
+      console.log('[Options] Azure configuration saved successfully to chrome.storage.sync');
     } catch (error) {
-      console.error('Failed to save Azure configuration:', error);
+      console.error('[Options] Failed to save Azure configuration:', error);
+      throw error; // Re-throw so the form can handle the error
     } finally {
       setIsSaving(false);
     }
@@ -177,12 +197,19 @@ const Options = () => {
                 isLight ? 'border-gray-200' : 'border-gray-700 bg-gray-800',
               )}>
               <h3 className="mb-4 text-lg font-medium">Service Configuration</h3>
-              <AzureConfigForm
-                initialConfig={azureConfig}
-                onSave={handleAzureConfigSave}
-                onTest={handleAzureConnectionTest}
-                loading={isSaving}
-              />
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <LoadingSpinner />
+                  <span className="ml-2 text-sm text-gray-500">Loading Azure configuration...</span>
+                </div>
+              ) : (
+                <AzureConfigForm
+                  initialConfig={azureConfig}
+                  onSave={handleAzureConfigSave}
+                  onTest={handleAzureConnectionTest}
+                  loading={isSaving}
+                />
+              )}
             </div>
 
             {/* Connection Testing */}

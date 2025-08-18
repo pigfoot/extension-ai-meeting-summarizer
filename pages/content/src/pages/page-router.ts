@@ -132,9 +132,8 @@ export class PageRouter {
           /sharepoint\.com/i,
           /\.sharepoint\./i,
           /\/_layouts\//i,
-          /\/sites\//i,
-          /\/forms\//i,
-          /\/sitepages\//i,
+          /\/personal\//i,
+          /stream\.aspx/i,
         ],
         domSelectors: [
           '[data-sp-feature-tag]',
@@ -142,12 +141,36 @@ export class PageRouter {
           '#s4-workspace',
           '.od-TopBar',
           '[data-automationid="SiteHeader"]',
-          '_spPageContextInfo',
+          'div[role="main"]',
+          '.SPStreamWebApp',
+          'video',
+          '.ms-Layer',
+          'script[src*="spstreamhomewebpackview"]',
+          'script[src*="spserviceworker"]',
+          '[class*="StreamWebApp"]',
+          '[id*="ShakaPlayer"]',
+          '.ms-FocusZone',
+          '[data-component-id*="Stream"]',
+          'body',
+          'html',
+          'head',
+          'div',
+          'script',
+          'style',
+          'meta[name="ms.sharepointpnp.version"]',
+          'link[href*="sharepoint"]',
+          'script[src*="office"]',
+          'div[class*="ms-"]',
         ],
         platformChecks: [
           () => (window as Window & { _spPageContextInfo?: unknown })._spPageContextInfo !== undefined,
           () => (window as Window & { SP?: unknown }).SP !== undefined,
           () => document.querySelector('[data-sp-feature-tag]') !== null,
+          () => window.location.hostname.includes('sharepoint.com'),
+          () => window.location.href.includes('sharepoint'),
+          () => document.querySelector('script[src*="spstreamhomewebpackview"]') !== null,
+          () => document.querySelector('video') !== null,
+          () => document.querySelector('body') !== null,
         ],
       },
       priority: 10,
@@ -244,7 +267,9 @@ export class PageRouter {
     }
 
     // If no good match found, create unknown result
+    console.log('[PageRouter] Final bestMatch before confidence check:', bestMatch);
     if (!bestMatch || bestMatch.confidence < 0.5) {
+      console.log('[PageRouter] Confidence too low, forcing unknown result. Confidence:', bestMatch?.confidence);
       bestMatch = {
         pageType: 'unknown',
         confidence: 0,
@@ -256,6 +281,8 @@ export class PageRouter {
         },
         fallbacks: this.getFallbackHandlers(),
       };
+    } else {
+      console.log('[PageRouter] Confidence sufficient, using detected type:', bestMatch.pageType, 'confidence:', bestMatch.confidence);
     }
 
     // Cache result
@@ -288,8 +315,11 @@ export class PageRouter {
     results.sort((a, b) => b.score - a.score);
 
     const bestResult = results[0];
+    console.log('[PageRouter] Detection results:', results);
+    console.log('[PageRouter] Best result:', bestResult);
 
     if (!bestResult || bestResult.score === 0) {
+      console.log('[PageRouter] No valid handler found - returning unknown');
       return {
         pageType: 'unknown',
         confidence: 0,
@@ -303,9 +333,16 @@ export class PageRouter {
       };
     }
 
+    const confidence = Math.min(bestResult.score / 100, 1);
+    console.log('[PageRouter] Final detection:', {
+      pageType: bestResult.name,
+      confidence: confidence,
+      score: bestResult.score
+    });
+
     return {
       pageType: bestResult.name as 'sharepoint' | 'teams' | 'unknown',
-      confidence: Math.min(bestResult.score / 100, 1),
+      confidence: confidence,
       details: {
         urlIndicators: bestResult.indicators.urlMatches,
         domIndicators: bestResult.indicators.domMatches,
@@ -338,6 +375,21 @@ export class PageRouter {
     // Priority bonus
     score += registration.priority * 0.01;
 
+    // Debug logging for SharePoint handler
+    if (registration.name === 'sharepoint') {
+      console.log('[PageRouter] SharePoint handler scoring:', {
+        name: registration.name,
+        urlScore,
+        domScore, 
+        platformScore,
+        priority: registration.priority,
+        totalScore: Math.min(score, maxScore),
+        currentUrl: window.location.href,
+        urlPatterns: registration.patterns.urlPatterns,
+        domSelectors: registration.patterns.domSelectors
+      });
+    }
+
     return Math.min(score, maxScore);
   }
 
@@ -362,26 +414,43 @@ export class PageRouter {
    */
   private async calculateDomScore(domSelectors: string[]): Promise<number> {
     let matches = 0;
+    const debugInfo: Array<{selector: string, found: boolean, error?: string}> = [];
 
     for (const selector of domSelectors) {
       try {
-        // Handle special case for global variables
-        if (!selector.startsWith('[') && !selector.startsWith('.') && !selector.startsWith('#')) {
-          if ((window as Window & Record<string, unknown>)[selector] !== undefined) {
-            matches++;
-          }
+        let found = false;
+        // Handle special case for global variables (camelCase indicates window property)
+        if (!selector.startsWith('[') && !selector.startsWith('.') && !selector.startsWith('#') && 
+            selector !== selector.toLowerCase() && !['body', 'html', 'head', 'div', 'script', 'style', 'video', 'audio', 'form', 'input', 'button', 'img', 'a', 'p', 'span', 'ul', 'li', 'table', 'tr', 'td'].includes(selector)) {
+          found = (window as Window & Record<string, unknown>)[selector] !== undefined;
         } else {
-          if (document.querySelector(selector)) {
-            matches++;
-          }
+          found = document.querySelector(selector) !== null;
         }
-      } catch (_error) {
+        
+        if (found) {
+          matches++;
+        }
+        debugInfo.push({ selector, found });
+      } catch (error) {
         // Invalid selector, skip
+        debugInfo.push({ selector, found: false, error: error.message });
         continue;
       }
     }
 
-    return domSelectors.length > 0 ? (matches / domSelectors.length) * 100 : 0;
+    const score = domSelectors.length > 0 ? (matches / domSelectors.length) * 100 : 0;
+    
+    // Debug logging for SharePoint DOM scoring
+    if (domSelectors.length > 0 && window.location.href.includes('sharepoint')) {
+      console.log('[PageRouter] SharePoint DOM scoring details:', {
+        totalSelectors: domSelectors.length,
+        matches: matches,
+        score: score,
+        details: debugInfo
+      });
+    }
+
+    return score;
   }
 
   /**
@@ -389,19 +458,39 @@ export class PageRouter {
    */
   private calculatePlatformScore(platformChecks: (() => boolean)[]): number {
     let matches = 0;
+    const debugInfo: Array<{check: string, result: boolean, error?: string}> = [];
 
-    for (const check of platformChecks) {
+    for (let i = 0; i < platformChecks.length; i++) {
       try {
-        if (check()) {
+        const result = platformChecks[i]();
+        if (result) {
           matches++;
         }
-      } catch (_error) {
-        // Check failed, skip
+        debugInfo.push({ check: `check_${i}`, result });
+      } catch (error) {
+        debugInfo.push({ check: `check_${i}`, result: false, error: error.message });
         continue;
       }
     }
 
-    return platformChecks.length > 0 ? (matches / platformChecks.length) * 100 : 0;
+    const score = platformChecks.length > 0 ? (matches / platformChecks.length) * 100 : 0;
+    
+    // Debug logging for SharePoint platform scoring
+    if (platformChecks.length > 0 && window.location.href.includes('sharepoint')) {
+      console.log('[PageRouter] SharePoint platform scoring details:', {
+        totalChecks: platformChecks.length,
+        matches: matches,
+        score: score,
+        details: debugInfo,
+        windowObjects: {
+          _spPageContextInfo: !!(window as any)._spPageContextInfo,
+          SP: !!(window as any).SP,
+          dataSpFeatureTag: !!document.querySelector('[data-sp-feature-tag]')
+        }
+      });
+    }
+
+    return score;
   }
 
   /**

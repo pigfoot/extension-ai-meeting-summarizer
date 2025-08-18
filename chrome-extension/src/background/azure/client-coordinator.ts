@@ -122,7 +122,7 @@ export class AzureClientCoordinator {
    */
   async getClient(azureConfig: AzureSpeechConfig): Promise<ClientConnection> {
     try {
-      console.log(`[AzureClientCoordinator] Requesting client for region: ${azureConfig.region}`);
+      console.log(`[AzureClientCoordinator] Requesting client for region: ${azureConfig.serviceRegion}`);
 
       // Check for existing client that can be reused
       if (this.config.enableReuse) {
@@ -353,7 +353,7 @@ export class AzureClientCoordinator {
     for (const client of this.clientPool.values()) {
       if (
         client.status === 'connected' &&
-        client.config.region === azureConfig.region &&
+        client.config.serviceRegion === azureConfig.serviceRegion &&
         client.config.subscriptionKey === azureConfig.subscriptionKey &&
         client.activeOperations < 3 // Limit concurrent operations per client
       ) {
@@ -371,7 +371,7 @@ export class AzureClientCoordinator {
 
     try {
       // Get authentication token
-      const _authToken = await this.getAuthToken(azureConfig.subscriptionKey, azureConfig.region);
+      const _authToken = await this.getAuthToken(azureConfig.subscriptionKey, azureConfig.serviceRegion);
 
       // Create speech client (mock implementation)
       const speechClient: SpeechClient = {

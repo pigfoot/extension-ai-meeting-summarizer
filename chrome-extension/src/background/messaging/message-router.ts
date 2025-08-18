@@ -1020,11 +1020,44 @@ export class MessageRouter implements IMessageRouter {
         const activeTab = tabs[0];
 
         // Phase 2: Execute content detection in the active tab
-        const detectionResults = await chrome.tabs.sendMessage(activeTab.id, {
-          type: 'DETECT_MEETING_CONTENT',
-          tabId: activeTab.id,
-          url: activeTab.url,
-        });
+        let detectionResults: any;
+        
+        try {
+          // First attempt: Try to communicate with declaratively injected content script
+          detectionResults = await chrome.tabs.sendMessage(activeTab.id, {
+            type: 'DETECT_MEETING_CONTENT',
+            tabId: activeTab.id,
+            url: activeTab.url,
+          });
+        } catch (sendMessageError) {
+          console.warn('[MessageRouter] Declarative content script not responding, attempting programmatic injection:', sendMessageError);
+          
+          // Phase 2B: Fallback to programmatic content script injection
+          try {
+            // Inject diagnostic content script programmatically
+            await chrome.scripting.executeScript({
+              target: { tabId: activeTab.id },
+              files: ['content/all.iife.js']
+            });
+            
+            console.log('[MessageRouter] Programmatic content script injection completed');
+            
+            // Wait a moment for script to initialize
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Retry communication
+            detectionResults = await chrome.tabs.sendMessage(activeTab.id, {
+              type: 'DETECT_MEETING_CONTENT',
+              tabId: activeTab.id,
+              url: activeTab.url,
+            });
+            
+            console.log('[MessageRouter] Content detection successful after programmatic injection');
+          } catch (injectionError) {
+            console.error('[MessageRouter] Programmatic injection also failed:', injectionError);
+            throw new Error(`Content script injection failed: ${injectionError instanceof Error ? injectionError.message : 'Unknown injection error'}`);
+          }
+        }
 
         if (!detectionResults || !detectionResults.success) {
           throw new Error(detectionResults?.error || 'Content detection failed');

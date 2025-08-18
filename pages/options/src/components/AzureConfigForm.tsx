@@ -14,7 +14,7 @@ import type React from 'react';
  */
 interface FormState {
   subscriptionKey: string;
-  region: AzureRegion;
+  serviceRegion: AzureRegion;
   language: string;
   endpoint?: string;
   enableLogging: boolean;
@@ -25,7 +25,7 @@ interface FormState {
  */
 interface FormErrors {
   subscriptionKey?: string;
-  region?: string;
+  serviceRegion?: string;
   language?: string;
   endpoint?: string;
 }
@@ -104,7 +104,7 @@ export const AzureConfigForm: React.FC<AzureConfigFormProps> = ({
   // Form state
   const [formState, setFormState] = useState<FormState>({
     subscriptionKey: initialConfig?.subscriptionKey || '',
-    region: initialConfig?.region || 'eastus',
+    serviceRegion: initialConfig?.serviceRegion || 'eastus',
     language: initialConfig?.language || 'en-US',
     endpoint: initialConfig?.endpoint || '',
     enableLogging: initialConfig?.enableLogging || false,
@@ -131,9 +131,9 @@ export const AzureConfigForm: React.FC<AzureConfigFormProps> = ({
       errors.subscriptionKey = 'Subscription key must contain only hexadecimal characters';
     }
 
-    // Validate region
-    if (!state.region) {
-      errors.region = 'Region is required';
+    // Validate service region
+    if (!state.serviceRegion) {
+      errors.serviceRegion = 'Service region is required';
     }
 
     // Validate language
@@ -174,7 +174,7 @@ export const AzureConfigForm: React.FC<AzureConfigFormProps> = ({
 
       const config: AzureSpeechConfig = {
         subscriptionKey: formState.subscriptionKey.trim(),
-        region: formState.region,
+        serviceRegion: formState.serviceRegion,
         language: formState.language,
         enableLogging: formState.enableLogging,
         ...(formState.endpoint && formState.endpoint.trim() && { endpoint: formState.endpoint.trim() }),
@@ -196,7 +196,7 @@ export const AzureConfigForm: React.FC<AzureConfigFormProps> = ({
     try {
       const config: AzureSpeechConfig = {
         subscriptionKey: formState.subscriptionKey.trim(),
-        region: formState.region,
+        serviceRegion: formState.serviceRegion,
         language: formState.language,
         enableLogging: formState.enableLogging,
         ...(formState.endpoint && formState.endpoint.trim() && { endpoint: formState.endpoint.trim() }),
@@ -258,11 +258,11 @@ export const AzureConfigForm: React.FC<AzureConfigFormProps> = ({
         </label>
         <select
           id="region"
-          value={formState.region}
-          onChange={e => handleFieldChange('region', e.target.value as AzureRegion)}
+          value={formState.serviceRegion}
+          onChange={e => handleFieldChange('serviceRegion', e.target.value as AzureRegion)}
           className={cn(
             'w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500',
-            formErrors.region ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500',
+            formErrors.serviceRegion ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500',
           )}
           disabled={loading}>
           {AZURE_REGIONS.map(region => (
@@ -271,7 +271,7 @@ export const AzureConfigForm: React.FC<AzureConfigFormProps> = ({
             </option>
           ))}
         </select>
-        {formErrors.region && <p className="text-sm text-red-600">{formErrors.region}</p>}
+        {formErrors.serviceRegion && <p className="text-sm text-red-600">{formErrors.serviceRegion}</p>}
         <p className="text-xs text-gray-500">Choose the region closest to your location for better performance</p>
       </div>
 

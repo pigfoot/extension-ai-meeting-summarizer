@@ -12,6 +12,7 @@ import { componentRegistry } from './components/ComponentRegistry';
 import { featureActivationManager } from './features/feature-activation';
 import { pageMonitor } from './pages/page-monitor';
 import { pageRouter } from './pages/page-router';
+import { SharePointPageHandler } from './pages/sharepoint-handler';
 import { eventManager } from './utils/event-manager';
 import { IS_DEV } from '@extension/env';
 
@@ -859,10 +860,21 @@ const handleContentDetection = async (
     // Extract meeting metadata
     const metadata = extractMeetingMetadata();
 
+    // Convert string URLs to AudioUrlInfo format expected by message-router
+    const audioUrlInfos = audioUrls.map(url => ({
+      url: url,
+      format: extractFormatFromUrl(url),
+      quality: 'unknown',
+      size: undefined,
+      duration: undefined,
+    }));
+
+    console.log('[ContentScript] Converted audio URLs:', audioUrlInfos);
+
     // Success response
     sendResponse({
       success: true,
-      audioUrls: audioUrls,
+      audioUrls: audioUrlInfos,
       metadata: metadata,
       analysis: analysis,
       pageInfo: {
@@ -890,57 +902,295 @@ const detectMediaUrls = async (): Promise<string[]> => {
   const mediaUrls: string[] = [];
 
   try {
-    // Look for SharePoint Stream video URLs
-    const videoElements = document.querySelectorAll('video[src], video source[src]');
-    videoElements.forEach(element => {
-      const src = element.getAttribute('src');
-      if (src && (src.includes('.mp4') || src.includes('.webm') || src.includes('stream'))) {
-        mediaUrls.push(src);
-      }
-    });
+    console.log('[ContentScript] Starting media URL detection for:', window.location.href);
 
-    // Look for audio elements
-    const audioElements = document.querySelectorAll('audio[src], audio source[src]');
-    audioElements.forEach(element => {
-      const src = element.getAttribute('src');
-      if (src && (src.includes('.mp3') || src.includes('.wav') || src.includes('.m4a'))) {
-        mediaUrls.push(src);
-      }
-    });
+    // Check if this is a SharePoint page and use specialized handler
+    const isSharePointPage = window.location.hostname.includes('sharepoint.com') || 
+                             window.location.href.includes('sharepoint') ||
+                             document.querySelector('[data-sp-feature-tag]') !== null;
 
-    // Look for SharePoint-specific patterns in the page
-    const scripts = document.querySelectorAll('script');
-    scripts.forEach(script => {
-      if (script.textContent) {
-        // Look for Stream URLs in JavaScript
-        const streamMatches = script.textContent.match(/https:\/\/[^"'\s]*\.mp4[^"'\s]*/g);
-        if (streamMatches) {
-          streamMatches.forEach(url => {
-            if (!mediaUrls.includes(url)) {
-              mediaUrls.push(url);
+    if (isSharePointPage) {
+      console.log('[ContentScript] SharePoint page detected, using SharePoint handler');
+      
+      try {
+        const sharePointHandler = new SharePointPageHandler();
+        const integrationContext = await sharePointHandler.initialize();
+        
+        if (integrationContext && integrationContext.availableContent.length > 0) {
+          console.log('[ContentScript] SharePoint handler found content:', integrationContext.availableContent);
+          
+          // Extract URLs from SharePoint handler results
+          integrationContext.availableContent.forEach(content => {
+            if (content.location && !mediaUrls.includes(content.location)) {
+              mediaUrls.push(content.location);
+              console.log('[ContentScript] Added SharePoint URL:', content.location);
             }
           });
+        } else {
+          console.log('[ContentScript] SharePoint handler found no content, falling back to direct detection');
+        }
+        
+        // Get recordings directly from SharePoint handler
+        const recordings = sharePointHandler.getMeetingRecordings();
+        recordings.forEach(recording => {
+          if (recording.url && !mediaUrls.includes(recording.url)) {
+            mediaUrls.push(recording.url);
+            console.log('[ContentScript] Added recording URL:', recording.url);
+          }
+        });
+        
+        // Cleanup handler
+        sharePointHandler.cleanup();
+        
+      } catch (sharePointError) {
+        console.error('[ContentScript] SharePoint handler error:', sharePointError);
+        console.log('[ContentScript] Falling back to generic detection');
+      }
+    }
+
+    // If SharePoint detection failed or found nothing, use fallback detection
+    if (mediaUrls.length === 0) {
+      console.log('[ContentScript] Using fallback media detection');
+      
+      // Strategy 1: Look for video/audio elements
+      const videoElements = document.querySelectorAll('video[src], video source[src]');
+      videoElements.forEach(element => {
+        const src = element.getAttribute('src');
+        if (src && (src.includes('.mp4') || src.includes('.webm') || src.includes('stream'))) {
+          mediaUrls.push(src);
+          console.log('[ContentScript] Added video element URL:', src);
+        }
+      });
+
+      const audioElements = document.querySelectorAll('audio[src], audio source[src]');
+      audioElements.forEach(element => {
+        const src = element.getAttribute('src');
+        if (src && (src.includes('.mp3') || src.includes('.wav') || src.includes('.m4a'))) {
+          mediaUrls.push(src);
+          console.log('[ContentScript] Added audio element URL:', src);
+        }
+      });
+
+      // Strategy 2: For SharePoint Stream pages, extract direct media URLs
+      if (isSharePointPage && window.location.href.includes('stream.aspx')) {
+        const directMediaUrls = extractSharePointDirectMediaUrls();
+        directMediaUrls.forEach(url => {
+          if (!mediaUrls.includes(url)) {
+            mediaUrls.push(url);
+            console.log('[ContentScript] Added SharePoint direct media URL:', url);
+          }
+        });
+        
+        // Fallback: If no direct URLs found, try to construct download URL from page URL
+        if (directMediaUrls.length === 0) {
+          const constructedUrl = constructSharePointDirectUrl(window.location.href);
+          if (constructedUrl) {
+            mediaUrls.push(constructedUrl);
+            console.log('[ContentScript] Added constructed SharePoint URL:', constructedUrl);
+          }
         }
       }
-    });
 
-    // Look for data attributes and hidden inputs that might contain media URLs
-    const mediaInputs = document.querySelectorAll('[data-video-url], [data-audio-url], [data-stream-url]');
-    mediaInputs.forEach(element => {
-      const videoUrl = element.getAttribute('data-video-url');
-      const audioUrl = element.getAttribute('data-audio-url');
-      const streamUrl = element.getAttribute('data-stream-url');
+      // Strategy 3: Look for SharePoint-specific patterns in JavaScript
+      const scripts = document.querySelectorAll('script');
+      scripts.forEach(script => {
+        if (script.textContent) {
+          const streamMatches = script.textContent.match(/https:\/\/[^"'\s]*\.mp4[^"'\s]*/g);
+          if (streamMatches) {
+            streamMatches.forEach(url => {
+              if (!mediaUrls.includes(url)) {
+                mediaUrls.push(url);
+                console.log('[ContentScript] Added script URL:', url);
+              }
+            });
+          }
+        }
+      });
 
-      if (videoUrl && !mediaUrls.includes(videoUrl)) mediaUrls.push(videoUrl);
-      if (audioUrl && !mediaUrls.includes(audioUrl)) mediaUrls.push(audioUrl);
-      if (streamUrl && !mediaUrls.includes(streamUrl)) mediaUrls.push(streamUrl);
-    });
+      // Strategy 4: Look for data attributes
+      const mediaInputs = document.querySelectorAll('[data-video-url], [data-audio-url], [data-stream-url]');
+      mediaInputs.forEach(element => {
+        const videoUrl = element.getAttribute('data-video-url');
+        const audioUrl = element.getAttribute('data-audio-url');
+        const streamUrl = element.getAttribute('data-stream-url');
 
+        if (videoUrl && !mediaUrls.includes(videoUrl)) {
+          mediaUrls.push(videoUrl);
+          console.log('[ContentScript] Added data-video-url:', videoUrl);
+        }
+        if (audioUrl && !mediaUrls.includes(audioUrl)) {
+          mediaUrls.push(audioUrl);
+          console.log('[ContentScript] Added data-audio-url:', audioUrl);
+        }
+        if (streamUrl && !mediaUrls.includes(streamUrl)) {
+          mediaUrls.push(streamUrl);
+          console.log('[ContentScript] Added data-stream-url:', streamUrl);
+        }
+      });
+    }
+
+    console.log('[ContentScript] Final media URLs detected:', mediaUrls);
     return mediaUrls;
   } catch (error) {
     console.error('[ContentScript] Error detecting media URLs:', error);
     return [];
   }
+};
+
+/**
+ * Extract direct media URLs from SharePoint Stream pages
+ */
+const extractSharePointDirectMediaUrls = (): string[] => {
+  const directUrls: string[] = [];
+  
+  console.log('[ContentScript] Extracting direct media URLs from SharePoint Stream page...');
+  
+  // Strategy 1: Check video element sources
+  const videoElements = document.querySelectorAll('video');
+  videoElements.forEach((video, index) => {
+    console.log(`[ContentScript] Video element ${index}:`, {
+      src: video.src,
+      currentSrc: video.currentSrc,
+      tagName: video.tagName
+    });
+    
+    // Check for direct media URLs (not blob URLs)
+    if (video.src && !video.src.startsWith('blob:') && !video.src.startsWith('data:')) {
+      directUrls.push(video.src);
+      console.log('[ContentScript] Found direct video src:', video.src);
+    }
+    
+    if (video.currentSrc && !video.currentSrc.startsWith('blob:') && !video.currentSrc.startsWith('data:')) {
+      directUrls.push(video.currentSrc);
+      console.log('[ContentScript] Found direct video currentSrc:', video.currentSrc);
+    }
+    
+    // Check source elements within video
+    const sources = video.querySelectorAll('source');
+    sources.forEach(source => {
+      const src = source.getAttribute('src');
+      if (src && !src.startsWith('blob:') && !src.startsWith('data:')) {
+        directUrls.push(src);
+        console.log('[ContentScript] Found source element URL:', src);
+      }
+    });
+  });
+  
+  // Strategy 2: Look for hidden inputs with media URLs
+  const hiddenInputs = document.querySelectorAll('input[type="hidden"]');
+  hiddenInputs.forEach(input => {
+    const value = input.value;
+    if (value && (value.includes('.mp4') || value.includes('.wav') || value.includes('.mp3'))) {
+      if (value.startsWith('http')) {
+        directUrls.push(value);
+        console.log('[ContentScript] Found URL in hidden input:', value);
+      }
+    }
+  });
+  
+  // Strategy 3: Search for media URLs in data attributes
+  const elementsWithData = document.querySelectorAll('[data-video-url], [data-media-url], [data-stream-url]');
+  elementsWithData.forEach(element => {
+    const videoUrl = element.getAttribute('data-video-url');
+    const mediaUrl = element.getAttribute('data-media-url');
+    const streamUrl = element.getAttribute('data-stream-url');
+    
+    [videoUrl, mediaUrl, streamUrl].forEach(url => {
+      if (url && url.startsWith('http') && !url.includes('stream.aspx')) {
+        directUrls.push(url);
+        console.log('[ContentScript] Found URL in data attribute:', url);
+      }
+    });
+  });
+  
+  // Strategy 4: Parse JavaScript variables for media URLs
+  const scripts = document.querySelectorAll('script:not([src])');
+  scripts.forEach(script => {
+    const content = script.textContent || '';
+    
+    // Look for common SharePoint media URL patterns
+    const mediaUrlPatterns = [
+      /["']https:\/\/[^"'\s]*\.mp4[^"'\s]*["']/g,
+      /["']https:\/\/[^"'\s]*\.wav[^"'\s]*["']/g,
+      /["']https:\/\/[^"'\s]*\.mp3[^"'\s]*["']/g,
+      /videoUrl\s*:\s*["']([^"']+)["']/g,
+      /mediaUrl\s*:\s*["']([^"']+)["']/g,
+      /downloadUrl\s*:\s*["']([^"']+)["']/g
+    ];
+    
+    mediaUrlPatterns.forEach(pattern => {
+      const matches = content.matchAll(pattern);
+      for (const match of matches) {
+        let url = match[1] || match[0];
+        // Remove quotes
+        url = url.replace(/^["']|["']$/g, '');
+        
+        if (url.startsWith('http') && !url.includes('stream.aspx')) {
+          directUrls.push(url);
+          console.log('[ContentScript] Found URL in script:', url);
+        }
+      }
+    });
+  });
+  
+  // Remove duplicates
+  const uniqueUrls = [...new Set(directUrls)];
+  console.log('[ContentScript] Extracted direct media URLs:', uniqueUrls);
+  
+  return uniqueUrls;
+};
+
+/**
+ * Construct direct download URL from SharePoint Stream page URL
+ */
+const constructSharePointDirectUrl = (pageUrl: string): string | null => {
+  try {
+    console.log('[ContentScript] Attempting to construct direct URL from:', pageUrl);
+    
+    const url = new URL(pageUrl);
+    const idParam = url.searchParams.get('id');
+    
+    if (!idParam) {
+      console.log('[ContentScript] No id parameter found in URL');
+      return null;
+    }
+    
+    console.log('[ContentScript] Found id parameter:', idParam);
+    
+    // SharePoint direct download URL pattern: Replace _layouts/15/stream.aspx with direct file path
+    // Original: https://tenant.sharepoint.com/_layouts/15/stream.aspx?id=/path/to/file.mp4
+    // Direct:   https://tenant.sharepoint.com/path/to/file.mp4
+    
+    const baseUrl = `${url.protocol}//${url.hostname}`;
+    const directPath = idParam.startsWith('/') ? idParam : `/${idParam}`;
+    const directUrl = `${baseUrl}${directPath}`;
+    
+    console.log('[ContentScript] Constructed direct URL:', directUrl);
+    
+    // Verify it looks like a media file
+    if (directUrl.match(/\.(mp4|wav|mp3|webm)$/i)) {
+      return directUrl;
+    } else {
+      console.log('[ContentScript] Constructed URL does not appear to be a media file');
+      return null;
+    }
+    
+  } catch (error) {
+    console.error('[ContentScript] Error constructing direct URL:', error);
+    return null;
+  }
+};
+
+/**
+ * Extract format from URL
+ */
+const extractFormatFromUrl = (url: string): string => {
+  if (url.includes('.mp4')) return 'mp4';
+  if (url.includes('.mp3')) return 'mp3';
+  if (url.includes('.wav')) return 'wav';
+  if (url.includes('.webm')) return 'webm';
+  if (url.includes('stream.aspx') || url.includes('stream')) return 'stream';
+  return 'unknown';
 };
 
 /**

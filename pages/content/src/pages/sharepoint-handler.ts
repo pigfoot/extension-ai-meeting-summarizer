@@ -259,25 +259,19 @@ export class SharePointPageHandler {
    * Check if current page is SharePoint
    */
   private isSharePointPage(): boolean {
-    // Check for SharePoint indicators
-    const indicators = [
-      'sharepoint.com',
-      '_spPageContextInfo',
-      'SP.ClientContext',
-      '[data-sp-feature-tag]',
-      '.ms-webpart-chrome',
-      '#s4-workspace',
-    ];
-
-    return indicators.some(indicator => {
-      if (indicator.includes('.com')) {
-        return window.location.hostname.includes(indicator);
-      } else if (indicator.startsWith('[') || indicator.startsWith('.') || indicator.startsWith('#')) {
-        return document.querySelector(indicator) !== null;
-      } else {
-        return (window as Window & Record<string, unknown>)[indicator] !== undefined;
-      }
+    // Use same detection logic as content-script for consistency
+    const isSharePointPage = window.location.hostname.includes('sharepoint.com') || 
+                             window.location.href.includes('sharepoint') ||
+                             document.querySelector('[data-sp-feature-tag]') !== null;
+    
+    console.log('[SharePointHandler] SharePoint page check:', {
+      hostname: window.location.hostname,
+      url: window.location.href,
+      hasSpTag: document.querySelector('[data-sp-feature-tag]') !== null,
+      result: isSharePointPage
     });
+    
+    return isSharePointPage;
   }
 
   /**

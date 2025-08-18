@@ -475,7 +475,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
           ? e => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                onClick(e as React.MouseEvent<HTMLSpanElement>);
+                onClick();
               }
             }
           : undefined

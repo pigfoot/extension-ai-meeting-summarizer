@@ -46,16 +46,16 @@ const manifest = {
   },
   content_scripts: [
     {
-      matches: ['http://*/*', 'https://*/*', '<all_urls>'],
+      matches: ['<all_urls>'],
       js: ['content/all.iife.js'],
+      run_at: 'document_end',
+      world: 'ISOLATED',
     },
     {
-      matches: ['https://example.com/*'],
-      js: ['content/example.iife.js'],
-    },
-    {
-      matches: ['http://*/*', 'https://*/*', '<all_urls>'],
+      matches: ['<all_urls>'],
       css: ['content.css'],
+      run_at: 'document_end',
+      world: 'ISOLATED',
     },
   ],
   web_accessible_resources: [
