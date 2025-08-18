@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@extension/shared": "workspace:*",
-    "@extension/storage": "workspace:*", 
+    "@extension/storage": "workspace:*",
     "@extension/tsconfig": "workspace:*",
     "@types/node": "^22.8.0"
   }
