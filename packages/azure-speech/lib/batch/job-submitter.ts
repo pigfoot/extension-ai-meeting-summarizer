@@ -341,12 +341,12 @@ export class JobSubmitter {
   private async performJobSubmission(
     request: CreateTranscriptionJobRequest,
   ): Promise<Omit<JobSubmissionResult, 'submissionTime' | 'submittedAt'>> {
-    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.region as AzureRegion];
+    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.serviceRegion as AzureRegion];
 
     if (!endpoint) {
       const error = createSubmissionError(
         'UNKNOWN_ERROR',
-        `No batch transcription endpoint found for region: ${this.authConfig.region}`,
+        `No batch transcription endpoint found for region: ${this.authConfig.serviceRegion}`,
       );
 
       return { success: false, error };
@@ -580,13 +580,13 @@ export class JobSubmitter {
       };
     }
 
-    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.region as AzureRegion];
+    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.serviceRegion as AzureRegion];
 
     if (!endpoint) {
       return {
         success: false,
         responseTime: Date.now() - startTime,
-        error: `No endpoint found for region: ${this.authConfig.region}`,
+        error: `No endpoint found for region: ${this.authConfig.serviceRegion}`,
       };
     }
 

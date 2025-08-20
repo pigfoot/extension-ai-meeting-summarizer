@@ -253,10 +253,13 @@ export class TokenManager {
    * Issue a new authentication token
    */
   async issueToken(timeout: number = 10000): Promise<TokenRefreshResult> {
-    const tokenEndpoint = TOKEN_ENDPOINTS[this.config.region as AzureRegion];
+    const tokenEndpoint = TOKEN_ENDPOINTS[this.config.serviceRegion as AzureRegion];
 
     if (!tokenEndpoint) {
-      const error = createAuthError('INVALID_REGION', `No token endpoint found for region: ${this.config.region}`);
+      const error = createAuthError(
+        'INVALID_REGION',
+        `No token endpoint found for region: ${this.config.serviceRegion}`,
+      );
       this.emitEvent('token_refresh_failure', 'Token refresh failed: invalid region', undefined, error);
       return { success: false, error };
     }
@@ -522,7 +525,7 @@ export class TokenManager {
     this.config = { ...this.config, ...config };
 
     // Clear current token if subscription key or region changed
-    if (config.subscriptionKey || config.region) {
+    if (config.subscriptionKey || config.serviceRegion) {
       this.clearToken();
     }
   }

@@ -165,6 +165,19 @@ export class PageMonitor {
       return;
     }
 
+    // STRONG ARCHITECTURAL PROTECTION: Never start monitoring on unsupported pages
+    const currentUrl = window.location.href;
+    const isSupportedPage = this.isSupportedPageUrl(currentUrl);
+
+    console.log(`[PageMonitor] STRONG PROTECTION CHECK - URL: ${currentUrl}, Supported: ${isSupportedPage}`);
+
+    if (!isSupportedPage) {
+      console.log('[PageMonitor] STRONG PROTECTION ACTIVE - refusing to start monitoring on unsupported page');
+      return; // Completely refuse to start monitoring
+    }
+
+    console.log('[PageMonitor] STRONG PROTECTION PASSED - starting monitoring');
+
     this.isMonitoring = true;
     this.statistics.status = 'active';
     this.statistics.startTime = new Date();
@@ -767,6 +780,16 @@ export class PageMonitor {
    */
   private async validateHandlerState(): Promise<void> {
     try {
+      // First check if this is a supported page type by URL
+      const currentUrl = window.location.href;
+      const isSupportedPage = this.isSupportedPageUrl(currentUrl);
+
+      // For unsupported pages, skip handler validation entirely
+      if (!isSupportedPage) {
+        // Skip validation for unsupported page types - this is normal behavior
+        return;
+      }
+
       const currentHandler = pageRouter.getCurrentHandler();
       const currentPageType = pageRouter.getCurrentPageType();
 
@@ -784,6 +807,27 @@ export class PageMonitor {
     } catch (error) {
       console.error('Handler state validation failed:', error);
     }
+  }
+
+  /**
+   * Check if the current URL is a supported page type
+   */
+  private isSupportedPageUrl(url: string): boolean {
+    // Only SharePoint and Teams pages are supported
+    const supportedPatterns = [
+      /sharepoint\.com/i,
+      /\.sharepoint\./i,
+      /\/_layouts\//i,
+      /\/personal\//i,
+      /stream\.aspx/i,
+      /teams\.microsoft\.com/i,
+      /teams\.live\.com/i,
+      /teams-for-business\.microsoft\.com/i,
+      /\/meetup-join\//i,
+      /\/l\/meetup-join\//i,
+    ];
+
+    return supportedPatterns.some(pattern => pattern.test(url));
   }
 
   /**

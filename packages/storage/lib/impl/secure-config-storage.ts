@@ -152,7 +152,7 @@ export class SecureConfigStorage {
       const secureConfig: SecureConfigRecord = {
         id: this.generateConfigId(),
         encryptedApiKey: encryptionResult.encryptedData,
-        region: config.region,
+        serviceRegion: config.serviceRegion,
         endpoint: config.endpoint,
         language: config.language,
         preferences: config.preferences,
@@ -731,7 +731,7 @@ export class SecureConfigStorage {
     }
 
     // Test region format
-    if (config.region && /^[a-z]+[a-z0-9]*$/.test(config.region)) {
+    if (config.serviceRegion && /^[a-z]+[a-z0-9]*$/.test(config.serviceRegion)) {
       tests.push({
         testId: 'region-format',
         name: 'Region Format',
@@ -917,7 +917,7 @@ export class SecureConfigStorage {
       entryId: this.generateHistoryId(),
       configSnapshot: {
         id: config.id,
-        region: config.region,
+        serviceRegion: config.serviceRegion,
         endpoint: config.endpoint,
         language: config.language,
         configVersion: config.configVersion,

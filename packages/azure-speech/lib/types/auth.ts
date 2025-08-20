@@ -13,7 +13,7 @@ export interface AuthConfig {
   /** Azure subscription key */
   subscriptionKey: string;
   /** Azure service region */
-  region: AzureRegion;
+  serviceRegion: AzureRegion;
   /** Custom endpoint URL (optional) */
   endpoint?: string;
   /** Token refresh interval in milliseconds */

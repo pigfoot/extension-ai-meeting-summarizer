@@ -1020,8 +1020,13 @@ export class MessageRouter implements IMessageRouter {
         const activeTab = tabs[0];
 
         // Phase 2: Execute content detection in the active tab
-        let detectionResults: any;
-        
+        let detectionResults: {
+          success: boolean;
+          error?: string;
+          audioUrls?: AudioUrlInfo[];
+          metadata?: Record<string, unknown>;
+        };
+
         try {
           // First attempt: Try to communicate with declaratively injected content script
           detectionResults = await chrome.tabs.sendMessage(activeTab.id, {
@@ -1030,32 +1035,37 @@ export class MessageRouter implements IMessageRouter {
             url: activeTab.url,
           });
         } catch (sendMessageError) {
-          console.warn('[MessageRouter] Declarative content script not responding, attempting programmatic injection:', sendMessageError);
-          
+          console.warn(
+            '[MessageRouter] Declarative content script not responding, attempting programmatic injection:',
+            sendMessageError,
+          );
+
           // Phase 2B: Fallback to programmatic content script injection
           try {
             // Inject diagnostic content script programmatically
             await chrome.scripting.executeScript({
               target: { tabId: activeTab.id },
-              files: ['content/all.iife.js']
+              files: ['content/all.iife.js'],
             });
-            
+
             console.log('[MessageRouter] Programmatic content script injection completed');
-            
+
             // Wait a moment for script to initialize
             await new Promise(resolve => setTimeout(resolve, 500));
-            
+
             // Retry communication
             detectionResults = await chrome.tabs.sendMessage(activeTab.id, {
               type: 'DETECT_MEETING_CONTENT',
               tabId: activeTab.id,
               url: activeTab.url,
             });
-            
+
             console.log('[MessageRouter] Content detection successful after programmatic injection');
           } catch (injectionError) {
             console.error('[MessageRouter] Programmatic injection also failed:', injectionError);
-            throw new Error(`Content script injection failed: ${injectionError instanceof Error ? injectionError.message : 'Unknown injection error'}`);
+            throw new Error(
+              `Content script injection failed: ${injectionError instanceof Error ? injectionError.message : 'Unknown injection error'}`,
+            );
           }
         }
 
@@ -1188,11 +1198,16 @@ export class MessageRouter implements IMessageRouter {
         },
       };
 
-      // Submit job to queue
-      await jobQueueManager.enqueueJob(job);
+      // Submit job through JobCoordinator for proper lifecycle management
+      console.log('[MessageRouter] 🚀 Submitting job through JobCoordinator:', jobId);
+      const coordinator = this.backgroundMain.getSubsystem('jobCoordinator');
 
-      // Start tracking the job
-      jobTracker.startTracking(job);
+      if (!coordinator) {
+        throw new Error('JobCoordinator not available');
+      }
+
+      const submittedJobId = await coordinator.submitJob(job);
+      console.log('[MessageRouter] ✅ Job successfully submitted via JobCoordinator:', submittedJobId);
 
       return {
         success: true,
@@ -1296,7 +1311,7 @@ export class MessageRouter implements IMessageRouter {
             id: job.jobId,
             title: `Transcription - ${job.executionContext.metadata?.audioSource || 'Unknown'}`,
             status: job.executionContext.status,
-            progress: progress?.completionPercentage || 0,
+            progress: progress?.progressPercentage || 0,
             stage: progress?.currentStage || 'initializing',
             startTime: job.executionContext.startTime,
             estimatedCompletion: progress?.estimatedCompletion,

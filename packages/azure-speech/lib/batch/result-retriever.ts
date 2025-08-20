@@ -490,12 +490,12 @@ export class ResultRetriever {
   private async performResultRetrieval(
     azureJobId: string,
   ): Promise<Omit<ResultRetrievalResult, 'retrievalTime' | 'retrievedAt'>> {
-    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.region as AzureRegion];
+    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.serviceRegion as AzureRegion];
 
     if (!endpoint) {
       const error = createRetrievalError(
         'UNKNOWN_ERROR',
-        `No batch transcription endpoint found for region: ${this.authConfig.region}`,
+        `No batch transcription endpoint found for region: ${this.authConfig.serviceRegion}`,
       );
 
       return { success: false, error };
@@ -555,7 +555,7 @@ export class ResultRetriever {
     files?: AzureTranscriptionFile[];
     error?: ResultRetrievalError;
   }> {
-    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.region as AzureRegion];
+    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.serviceRegion as AzureRegion];
     const apiUrl = `${endpoint}/speechtotext/v3.0/transcriptions/${azureJobId}/files`;
 
     try {
@@ -810,7 +810,7 @@ export class ResultRetriever {
         sampleRate: 16000, // Default, Azure doesn't provide this in results
         channels: 1, // Default, Azure doesn't provide this in results
         processingTime: 0, // Not available from Azure results
-        language: this.authConfig.region || 'unknown',
+        language: 'en-US', // Default language, AuthConfig doesn't contain language info
       },
       ...(speakers.length > 0 && { speakers }),
     };
@@ -920,13 +920,13 @@ export class ResultRetriever {
       };
     }
 
-    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.region as AzureRegion];
+    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.serviceRegion as AzureRegion];
 
     if (!endpoint) {
       return {
         success: false,
         responseTime: Date.now() - startTime,
-        error: `No endpoint found for region: ${this.authConfig.region}`,
+        error: `No endpoint found for region: ${this.authConfig.serviceRegion}`,
       };
     }
 

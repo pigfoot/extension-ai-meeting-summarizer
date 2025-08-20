@@ -84,7 +84,7 @@ export const AzureConnectionTester: React.FC<AzureConnectionTesterProps> = ({
         throw new Error('Subscription key is required');
       }
 
-      if (!config?.region) {
+      if (!config?.serviceRegion) {
         throw new Error('Region is required');
       }
 
@@ -206,7 +206,7 @@ export const AzureConnectionTester: React.FC<AzureConnectionTesterProps> = ({
         status: latency > 200 ? 'warning' : 'success',
         message: `Average latency: ${latency.toFixed(0)}ms`,
         duration: Date.now() - start,
-        details: { latency, region: config?.region },
+        details: { latency, region: config?.serviceRegion },
       });
     } catch (error) {
       additionalTests.push({

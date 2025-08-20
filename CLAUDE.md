@@ -20,6 +20,8 @@
   - all project steering documents under folder `.claude/steering/`
   - all design, technical and tasks documents under folder `.claude/specs/`
   - bugs tracking or issues documments are under folder `.claude/bugs/`
+  - always follow the command `.claude/commands/bug-create.md` to create issue or bug.
+  - Remove temporary debugging logs and test code added for bug investigation
 - Update status as you progress
 - Remove file when all stages are done
 ### 2. Implementation Flow

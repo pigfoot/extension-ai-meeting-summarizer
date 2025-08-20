@@ -128,6 +128,21 @@ export class ContentScript {
     this.statistics = this.createInitialStatistics();
     this.setupErrorHandling();
 
+    // ARCHITECTURAL FIX: Only initialize on supported pages
+    const pageSupported = this.isSupportedPage();
+    const currentUrl = window.location.href;
+
+    // FORCE DEBUG OUTPUT - always log this regardless of debug setting
+    console.log(`[ContentScript] ARCHITECTURAL CHECK - URL: ${currentUrl}, Supported: ${pageSupported}`);
+
+    if (!pageSupported) {
+      console.log('[ContentScript] ARCHITECTURAL FIX ACTIVE - skipping initialization for unsupported page');
+      this.state = 'initialized'; // Mark as initialized but inactive
+      return;
+    }
+
+    console.log('[ContentScript] ARCHITECTURAL CHECK PASSED - proceeding with full initialization');
+
     if (this.config.autoInitialize) {
       this.initialize().catch(error => {
         this.handleInitializationError(error);
@@ -389,6 +404,19 @@ export class ContentScript {
     // Initialize page router
     const pageContext = pageRouter.getCurrentPageContext();
     this.log(`Page detected: ${pageContext.pageType} on ${pageContext.platform}`);
+
+    // Route to appropriate page handler immediately
+    try {
+      const integrationContext = await pageRouter.routeToHandler();
+      if (integrationContext) {
+        this.log(`Page handler initialized successfully for: ${pageContext.pageType}`);
+      } else {
+        this.log(`Warning: Page handler initialization returned null for: ${pageContext.pageType}`);
+      }
+    } catch (error) {
+      this.log(`Error during initial page handler routing: ${error}`);
+      // Don't throw - allow initialization to continue with monitoring
+    }
 
     // Initialize page monitor
     pageMonitor.startMonitoring({
@@ -700,11 +728,48 @@ export class ContentScript {
   }
 
   /**
+   * Check if current page is supported by this extension
+   */
+  private isSupportedPage(): boolean {
+    const currentUrl = window.location.href;
+
+    // Only SharePoint and Teams pages are supported
+    const supportedPatterns = [
+      /sharepoint\.com/i,
+      /\.sharepoint\./i,
+      /\/_layouts\//i,
+      /\/personal\//i,
+      /stream\.aspx/i,
+      /teams\.microsoft\.com/i,
+      /teams\.live\.com/i,
+      /teams-for-business\.microsoft\.com/i,
+      /\/meetup-join\//i,
+      /\/l\/meetup-join\//i,
+    ];
+
+    // Test each pattern and log details
+    const matches = supportedPatterns.map(pattern => {
+      const match = pattern.test(currentUrl);
+      return { pattern: pattern.source, match };
+    });
+
+    const isSupported = matches.some(m => m.match);
+
+    // FORCE DEBUG OUTPUT - always log this
+    console.log(`[ContentScript] DETAILED PAGE SUPPORT CHECK:`);
+    console.log(`  URL: ${currentUrl}`);
+    console.log(`  Pattern matches:`, matches);
+    console.log(`  Final result: ${isSupported}`);
+
+    return isSupported;
+  }
+
+  /**
    * Log debug message
    */
-  private log(_message: string): void {
+  private log(message: string): void {
     if (this.config.enableDebugLogging) {
-      // Debug logging implementation would go here
+      console.log(`[ContentScript] ${message}`);
     }
   }
 }
@@ -782,13 +847,16 @@ if (IS_DEV) {
 
 // Setup message handling for background service communication
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // ONLY handle content detection, let ALL other messages pass through
   if (message.type === 'DETECT_MEETING_CONTENT') {
+    console.log('[ContentScript] Handling DETECT_MEETING_CONTENT');
     // Handle content detection request
     handleContentDetection(message, sender, sendResponse);
     return true; // Keep message channel open for async response
   }
 
-  // Handle other message types if needed
+  // CRITICAL: Return false for all other messages to let background service handle them
+  console.log('[ContentScript] Ignoring message type:', message.type, '- letting background handle it');
   return false;
 });
 
@@ -801,6 +869,37 @@ const handleContentDetection = async (
   sendResponse: (response: unknown) => void,
 ) => {
   try {
+    // Check if this is a supported page first
+    const currentUrl = window.location.href;
+    const supportedPatterns = [
+      /sharepoint\.com/i,
+      /\.sharepoint\./i,
+      /\/_layouts\//i,
+      /\/personal\//i,
+      /stream\.aspx/i,
+      /teams\.microsoft\.com/i,
+      /teams\.live\.com/i,
+      /teams-for-business\.microsoft\.com/i,
+      /\/meetup-join\//i,
+      /\/l\/meetup-join\//i,
+    ];
+
+    const isSupported = supportedPatterns.some(pattern => pattern.test(currentUrl));
+
+    if (!isSupported) {
+      sendResponse({
+        success: false,
+        error: 'Page type not supported by this extension',
+        details: `Extension only supports SharePoint and Teams pages. Current page: ${currentUrl}`,
+        pageInfo: {
+          url: currentUrl,
+          title: document.title,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      return;
+    }
+
     // Ensure content script is initialized
     if (!contentScript.isReady()) {
       await contentScript.initialize();
@@ -905,20 +1004,21 @@ const detectMediaUrls = async (): Promise<string[]> => {
     console.log('[ContentScript] Starting media URL detection for:', window.location.href);
 
     // Check if this is a SharePoint page and use specialized handler
-    const isSharePointPage = window.location.hostname.includes('sharepoint.com') || 
-                             window.location.href.includes('sharepoint') ||
-                             document.querySelector('[data-sp-feature-tag]') !== null;
+    const isSharePointPage =
+      window.location.hostname.includes('sharepoint.com') ||
+      window.location.href.includes('sharepoint') ||
+      document.querySelector('[data-sp-feature-tag]') !== null;
 
     if (isSharePointPage) {
       console.log('[ContentScript] SharePoint page detected, using SharePoint handler');
-      
+
       try {
         const sharePointHandler = new SharePointPageHandler();
         const integrationContext = await sharePointHandler.initialize();
-        
+
         if (integrationContext && integrationContext.availableContent.length > 0) {
           console.log('[ContentScript] SharePoint handler found content:', integrationContext.availableContent);
-          
+
           // Extract URLs from SharePoint handler results
           integrationContext.availableContent.forEach(content => {
             if (content.location && !mediaUrls.includes(content.location)) {
@@ -929,7 +1029,7 @@ const detectMediaUrls = async (): Promise<string[]> => {
         } else {
           console.log('[ContentScript] SharePoint handler found no content, falling back to direct detection');
         }
-        
+
         // Get recordings directly from SharePoint handler
         const recordings = sharePointHandler.getMeetingRecordings();
         recordings.forEach(recording => {
@@ -938,10 +1038,9 @@ const detectMediaUrls = async (): Promise<string[]> => {
             console.log('[ContentScript] Added recording URL:', recording.url);
           }
         });
-        
+
         // Cleanup handler
         sharePointHandler.cleanup();
-        
       } catch (sharePointError) {
         console.error('[ContentScript] SharePoint handler error:', sharePointError);
         console.log('[ContentScript] Falling back to generic detection');
@@ -951,7 +1050,7 @@ const detectMediaUrls = async (): Promise<string[]> => {
     // If SharePoint detection failed or found nothing, use fallback detection
     if (mediaUrls.length === 0) {
       console.log('[ContentScript] Using fallback media detection');
-      
+
       // Strategy 1: Look for video/audio elements
       const videoElements = document.querySelectorAll('video[src], video source[src]');
       videoElements.forEach(element => {
@@ -980,7 +1079,7 @@ const detectMediaUrls = async (): Promise<string[]> => {
             console.log('[ContentScript] Added SharePoint direct media URL:', url);
           }
         });
-        
+
         // Fallback: If no direct URLs found, try to construct download URL from page URL
         if (directMediaUrls.length === 0) {
           const constructedUrl = constructSharePointDirectUrl(window.location.href);
@@ -1042,29 +1141,29 @@ const detectMediaUrls = async (): Promise<string[]> => {
  */
 const extractSharePointDirectMediaUrls = (): string[] => {
   const directUrls: string[] = [];
-  
+
   console.log('[ContentScript] Extracting direct media URLs from SharePoint Stream page...');
-  
+
   // Strategy 1: Check video element sources
   const videoElements = document.querySelectorAll('video');
   videoElements.forEach((video, index) => {
     console.log(`[ContentScript] Video element ${index}:`, {
       src: video.src,
       currentSrc: video.currentSrc,
-      tagName: video.tagName
+      tagName: video.tagName,
     });
-    
+
     // Check for direct media URLs (not blob URLs)
     if (video.src && !video.src.startsWith('blob:') && !video.src.startsWith('data:')) {
       directUrls.push(video.src);
       console.log('[ContentScript] Found direct video src:', video.src);
     }
-    
+
     if (video.currentSrc && !video.currentSrc.startsWith('blob:') && !video.currentSrc.startsWith('data:')) {
       directUrls.push(video.currentSrc);
       console.log('[ContentScript] Found direct video currentSrc:', video.currentSrc);
     }
-    
+
     // Check source elements within video
     const sources = video.querySelectorAll('source');
     sources.forEach(source => {
@@ -1075,7 +1174,7 @@ const extractSharePointDirectMediaUrls = (): string[] => {
       }
     });
   });
-  
+
   // Strategy 2: Look for hidden inputs with media URLs
   const hiddenInputs = document.querySelectorAll('input[type="hidden"]');
   hiddenInputs.forEach(input => {
@@ -1087,14 +1186,14 @@ const extractSharePointDirectMediaUrls = (): string[] => {
       }
     }
   });
-  
+
   // Strategy 3: Search for media URLs in data attributes
   const elementsWithData = document.querySelectorAll('[data-video-url], [data-media-url], [data-stream-url]');
   elementsWithData.forEach(element => {
     const videoUrl = element.getAttribute('data-video-url');
     const mediaUrl = element.getAttribute('data-media-url');
     const streamUrl = element.getAttribute('data-stream-url');
-    
+
     [videoUrl, mediaUrl, streamUrl].forEach(url => {
       if (url && url.startsWith('http') && !url.includes('stream.aspx')) {
         directUrls.push(url);
@@ -1102,12 +1201,12 @@ const extractSharePointDirectMediaUrls = (): string[] => {
       }
     });
   });
-  
+
   // Strategy 4: Parse JavaScript variables for media URLs
   const scripts = document.querySelectorAll('script:not([src])');
   scripts.forEach(script => {
     const content = script.textContent || '';
-    
+
     // Look for common SharePoint media URL patterns
     const mediaUrlPatterns = [
       /["']https:\/\/[^"'\s]*\.mp4[^"'\s]*["']/g,
@@ -1115,16 +1214,16 @@ const extractSharePointDirectMediaUrls = (): string[] => {
       /["']https:\/\/[^"'\s]*\.mp3[^"'\s]*["']/g,
       /videoUrl\s*:\s*["']([^"']+)["']/g,
       /mediaUrl\s*:\s*["']([^"']+)["']/g,
-      /downloadUrl\s*:\s*["']([^"']+)["']/g
+      /downloadUrl\s*:\s*["']([^"']+)["']/g,
     ];
-    
+
     mediaUrlPatterns.forEach(pattern => {
       const matches = content.matchAll(pattern);
       for (const match of matches) {
         let url = match[1] || match[0];
         // Remove quotes
         url = url.replace(/^["']|["']$/g, '');
-        
+
         if (url.startsWith('http') && !url.includes('stream.aspx')) {
           directUrls.push(url);
           console.log('[ContentScript] Found URL in script:', url);
@@ -1132,11 +1231,11 @@ const extractSharePointDirectMediaUrls = (): string[] => {
       }
     });
   });
-  
+
   // Remove duplicates
   const uniqueUrls = [...new Set(directUrls)];
   console.log('[ContentScript] Extracted direct media URLs:', uniqueUrls);
-  
+
   return uniqueUrls;
 };
 
@@ -1146,27 +1245,27 @@ const extractSharePointDirectMediaUrls = (): string[] => {
 const constructSharePointDirectUrl = (pageUrl: string): string | null => {
   try {
     console.log('[ContentScript] Attempting to construct direct URL from:', pageUrl);
-    
+
     const url = new URL(pageUrl);
     const idParam = url.searchParams.get('id');
-    
+
     if (!idParam) {
       console.log('[ContentScript] No id parameter found in URL');
       return null;
     }
-    
+
     console.log('[ContentScript] Found id parameter:', idParam);
-    
+
     // SharePoint direct download URL pattern: Replace _layouts/15/stream.aspx with direct file path
     // Original: https://tenant.sharepoint.com/_layouts/15/stream.aspx?id=/path/to/file.mp4
     // Direct:   https://tenant.sharepoint.com/path/to/file.mp4
-    
+
     const baseUrl = `${url.protocol}//${url.hostname}`;
     const directPath = idParam.startsWith('/') ? idParam : `/${idParam}`;
     const directUrl = `${baseUrl}${directPath}`;
-    
+
     console.log('[ContentScript] Constructed direct URL:', directUrl);
-    
+
     // Verify it looks like a media file
     if (directUrl.match(/\.(mp4|wav|mp3|webm)$/i)) {
       return directUrl;
@@ -1174,7 +1273,6 @@ const constructSharePointDirectUrl = (pageUrl: string): string | null => {
       console.log('[ContentScript] Constructed URL does not appear to be a media file');
       return null;
     }
-    
   } catch (error) {
     console.error('[ContentScript] Error constructing direct URL:', error);
     return null;

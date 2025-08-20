@@ -139,6 +139,51 @@ echo '{"id":6,"method":"Page.reload"}' | websocat -n1 ws://localhost:9222/devtoo
 
 ## Automation Scripts
 
+### Manual Extension Reload via Chrome DevTools Protocol
+
+**Primary Development Tool**: Use these commands to reload the extension and refresh SharePoint pages after code changes:
+
+```bash
+# Step 1: Find Meeting Summarizer Extension Specifically
+EXTENSION_SW_ID=$(curl -s http://localhost:9222/json | jq -r '.[] | select(.type == "service_worker" and (.url | contains("cbheahmbkoiomlngjaddonnefjgpgobj") or .url | contains("background.js"))) | .id' | head -1)
+
+# Step 2: Reload Extension with Error Handling
+if [ -n "$EXTENSION_SW_ID" ]; then
+    echo "Reloading extension (Service Worker ID: $EXTENSION_SW_ID)..."
+    echo '{"id":1,"method":"Runtime.evaluate","params":{"expression":"chrome.runtime.reload()"}}' | websocat -n1 "ws://localhost:9222/devtools/page/$EXTENSION_SW_ID"
+    echo "Extension reloaded. Waiting for initialization..."
+    sleep 3
+else
+    echo "❌ Extension service worker not found. Is the extension loaded?"
+    exit 1
+fi
+
+# Step 3: Find New Service Worker ID After Reload
+NEW_SW_ID=$(curl -s http://localhost:9222/json | jq -r '.[] | select(.type == "service_worker" and (.url | contains("cbheahmbkoiomlngjaddonnefjgpgobj") or .url | contains("background.js"))) | .id' | head -1)
+echo "New Service Worker ID: $NEW_SW_ID"
+
+# Step 4: Refresh SharePoint Page  
+SHAREPOINT_TAB_ID=$(curl -s http://localhost:9222/json | jq -r '.[] | select(.url | contains("sharepoint")) | .id' | head -1)
+if [ -n "$SHAREPOINT_TAB_ID" ]; then
+    echo "Refreshing SharePoint page (Tab ID: $SHAREPOINT_TAB_ID)..."
+    echo '{"id":2,"method":"Runtime.evaluate","params":{"expression":"location.reload()"}}' | websocat -n1 "ws://localhost:9222/devtools/page/$SHAREPOINT_TAB_ID"
+else
+    echo "⚠️ SharePoint tab not found. Please open a SharePoint page first."
+fi
+```
+
+**What these commands do**:
+- ✅ Finds and reloads extension via background service worker
+- ✅ Refreshes SharePoint page to activate new content script
+- ✅ Immediate feedback via JSON responses
+- ✅ Simple and reliable - no script dependencies
+
+**Use Cases**:
+- After fixing bugs in content scripts or page handlers
+- When testing DOM selector changes  
+- For rapid development iteration cycles
+- More reliable than complex automation scripts
+
 ### Quick Extension Test
 ```bash
 #!/bin/bash
@@ -150,6 +195,51 @@ if [ -n "$POPUP_TAB" ]; then
 else
     echo "Extension popup not found"
 fi
+```
+
+### Enhanced Extension Diagnostics
+
+**Advanced Diagnostic Commands**: Use these for comprehensive extension state analysis:
+
+```bash
+#!/bin/bash
+# Enhanced Extension State Diagnosis
+
+# Step 1: Find Extension Service Worker
+EXTENSION_SW_ID=$(curl -s http://localhost:9222/json | jq -r '.[] | select(.type == "service_worker" and (.url | contains("cbheahmbkoiomlngjaddonnefjgpgobj"))) | .id' | head -1)
+
+if [ -z "$EXTENSION_SW_ID" ]; then
+    echo "❌ Extension service worker not found"
+    exit 1
+fi
+
+echo "🔍 Extension Service Worker ID: $EXTENSION_SW_ID"
+
+# Step 2: Test Extension Background Service Connectivity
+echo "📡 Testing extension message handling..."
+CONNECTIVITY_TEST=$(echo '{"id":10,"method":"Runtime.evaluate","params":{"expression":"chrome.runtime.sendMessage({type: \"GET_STATUS\"}).then(result => JSON.stringify({success: true, result})).catch(err => JSON.stringify({success: false, error: err.message}))", "awaitPromise": true}}' | websocat -n1 "ws://localhost:9222/devtools/page/$EXTENSION_SW_ID" | jq -r '.result.result.value' 2>/dev/null)
+
+echo "🔌 Connectivity Result: $CONNECTIVITY_TEST"
+
+# Step 3: Run Job State Diagnostic (if connectivity works)
+if echo "$CONNECTIVITY_TEST" | grep -q '"success":true'; then
+    echo "✅ Extension responding. Running job state diagnostic..."
+    JOB_DIAGNOSTIC=$(echo '{"id":11,"method":"Runtime.evaluate","params":{"expression":"chrome.runtime.sendMessage({type: \"DEBUG_JOB_STATE\"}).then(result => JSON.stringify(result, null, 2)).catch(err => JSON.stringify({error: err.message}))", "awaitPromise": true}}' | websocat -n1 "ws://localhost:9222/devtools/page/$EXTENSION_SW_ID" | jq -r '.result.result.value' 2>/dev/null)
+    
+    echo "📊 Job State Diagnostic:"
+    echo "$JOB_DIAGNOSTIC" | jq '.' 2>/dev/null || echo "$JOB_DIAGNOSTIC"
+else
+    echo "❌ Extension not responding. Checking initialization..."
+    
+    # Step 4: Check Extension Initialization State
+    INIT_CHECK=$(echo '{"id":12,"method":"Runtime.evaluate","params":{"expression":"console.log(\"=== Extension Init Check ===\"); [\"backgroundService\", \"backgroundMain\", \"chrome\"].forEach(name => console.log(name + \":\", typeof globalThis[name])); \"Init check completed\""}}' | websocat -n1 "ws://localhost:9222/devtools/page/$EXTENSION_SW_ID")
+    
+    echo "🔧 Check browser console for initialization details"
+fi
+
+# Step 5: Check for Console Errors
+echo "📝 Checking for recent errors..."
+ERROR_CHECK=$(echo '{"id":13,"method":"Runtime.evaluate","params":{"expression":"console.log(\"Recent errors and warnings should appear above\"); \"Error check completed\""}}' | websocat -n1 "ws://localhost:9222/devtools/page/$EXTENSION_SW_ID")
 ```
 
 ### SharePoint Detection Test
@@ -167,27 +257,108 @@ fi
 
 ## Best Practices
 
-1. **Always verify current state** before testing
-2. **Use dynamic tab/extension ID lookup** instead of hardcoded values
-3. **Test in isolation** - disable conflicting extensions
-4. **Monitor console output** for detailed error information
-5. **Document test results** in bug reports and verification documents
-6. **Automate repetitive testing** with scripts
-7. **Test with real SharePoint pages** that contain meeting recordings
+1. **Use Chrome DevTools Protocol reload commands** after code changes
+2. **Always verify current state** before testing
+3. **Use dynamic tab/extension ID lookup** instead of hardcoded values
+4. **Test in isolation** - disable conflicting extensions
+5. **Monitor console output** for detailed error information
+6. **Document test results** in bug reports and verification documents
+7. **Use simple, reliable commands** over complex automation
+8. **Test with real SharePoint pages** that contain meeting recordings
+
+### Development Workflow Recommendations
+
+1. **After Code Changes**: 
+   - Use manual Chrome DevTools Protocol commands (see above)
+   - Commands handle both extension reload and page refresh reliably
+   
+2. **Bug Fix Verification**:
+   - Run the two-step reload process to apply fixes immediately
+   - Test end-to-end functionality after reload
+   
+3. **DOM Selector Testing**:
+   - Particularly important for SharePoint handler changes
+   - Manual reload ensures content script gets latest selector logic
+   - Simpler than automation scripts but just as effective
 
 ## Troubleshooting
 
 ### Common Error Patterns
-- `"Could not establish connection"` → Content script injection issue
+- `"Could not establish connection"` → Content script injection issue  
+  - **Solution**: Use Chrome DevTools Protocol reload commands to re-inject content scripts
 - `"No meeting recordings detected"` → Detection logic failure
+  - **Solution**: Reload extension and refresh page after DOM selector fixes
 - `"JSON: invalid token"` → Malformed WebSocket message
+  - **Solution**: Check JSON escaping in websocat commands
 - `"Receiving end does not exist"` → Message listener not registered
+- `chrome.runtime is undefined` → Extension context not available
+  - **Solution**: Extension needs reload; use manual reload commands
 
 ### Debug Steps
-1. Verify browser is running with remote debugging
-2. Check extension is loaded and active
-3. Confirm target page is accessible
-4. Test basic WebSocket connection
-5. Validate JSON message format
-6. Check Chrome extension permissions
-7. Review content script injection timing
+1. **First**: Try Chrome DevTools Protocol reload commands (see Automation Scripts section)
+2. Verify browser is running with remote debugging (`curl -s http://localhost:9222/json`)
+3. Check extension is loaded and active
+4. **Run Enhanced Diagnostics** (see Enhanced Extension Diagnostics section)
+5. Confirm target page is accessible
+6. Test basic WebSocket connection
+7. Validate JSON message format
+8. Check Chrome extension permissions
+9. Review content script injection timing
+
+### Advanced Troubleshooting
+
+#### Extension Message Handler Issues
+**Problem**: "Could not establish connection. Receiving end does not exist"
+**Root Causes & Solutions**:
+1. **Service Worker Not Fully Initialized**
+   ```bash
+   # Check if extension service worker is responding
+   EXTENSION_SW_ID=$(curl -s http://localhost:9222/json | jq -r '.[] | select(.type == "service_worker" and (.url | contains("cbheahmbkoiomlngjaddonnefjgpgobj"))) | .id' | head -1)
+   echo '{"id":1,"method":"Runtime.evaluate","params":{"expression":"typeof chrome !== \"undefined\" && typeof chrome.runtime !== \"undefined\""}}' | websocat -n1 "ws://localhost:9222/devtools/page/$EXTENSION_SW_ID"
+   ```
+
+2. **Message Listeners Not Registered**
+   - Check background service initialization logs
+   - Verify BackgroundMain.initialize() completed successfully
+   - Look for "fallback message handler" logs indicating proper setup
+
+3. **Extension Reload Required**
+   ```bash
+   # Force reload and wait for initialization
+   echo '{"id":1,"method":"Runtime.evaluate","params":{"expression":"chrome.runtime.reload()"}}' | websocat -n1 "ws://localhost:9222/devtools/page/$EXTENSION_SW_ID"
+   sleep 3
+   # Re-test connectivity
+   ```
+
+#### Job State Synchronization Issues
+**Problem**: JobTracker shows jobs but JobQueueManager queue is empty
+**Diagnostic Commands**:
+```bash
+# Use the enhanced diagnostic script above, look for:
+# - JobTracker.totalJobs > 0 
+# - JobQueue.totalQueued = 0
+# - Analysis showing "trackedButNotQueued" jobs
+```
+
+**Common Causes**:
+1. **State Sync Failure**: Jobs added to tracker but not queue
+2. **Processing Loop Issues**: Jobs taken from queue but stuck in processing
+3. **Azure Service Initialization**: Jobs fail Azure availability check
+
+#### Service Worker Console Access
+**Problem**: Need to see service worker logs directly
+**Solution**: Use browser DevTools or remote debugging console access:
+```bash
+# Enable console logging in service worker
+EXTENSION_SW_ID="YOUR_SW_ID"
+echo '{"id":1,"method":"Runtime.enable"}' | websocat -n1 "ws://localhost:9222/devtools/page/$EXTENSION_SW_ID"
+echo '{"id":2,"method":"Console.enable"}' | websocat -n1 "ws://localhost:9222/devtools/page/$EXTENSION_SW_ID"
+```
+
+### Manual Reload Troubleshooting
+If Chrome DevTools Protocol commands fail:
+- Ensure `websocat` and `jq` are installed
+- Verify remote debugging is enabled on port 9222
+- Check that extension is loaded in browser
+- Manually reload extension in browser as fallback
+- Check service worker and tab IDs are current

@@ -58,7 +58,7 @@ export interface SecureConfigRecord {
   encryptedApiKey: string;
 
   /** Azure service region */
-  region: string;
+  serviceRegion: string;
 
   /** Azure service endpoint URL */
   endpoint: string;

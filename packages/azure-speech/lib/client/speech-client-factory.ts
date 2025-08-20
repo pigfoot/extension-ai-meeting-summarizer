@@ -364,7 +364,7 @@ export const createSpeechClient = (config: AzureSpeechConfig, clientId?: string)
  */
 export const createSpeechClientWithBuilder = (
   subscriptionKey: string,
-  region: AzureSpeechConfig['region'],
+  region: AzureSpeechConfig['serviceRegion'],
   transcriptionConfig?: TranscriptionConfig,
 ): AzureSpeechClient => {
   const configBuilder = new SpeechConfigBuilder(subscriptionKey, region);

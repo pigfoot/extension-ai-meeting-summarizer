@@ -310,7 +310,7 @@ export const AzureConfigForm: React.FC<AzureConfigFormProps> = ({
           type="url"
           value={formState.endpoint}
           onChange={e => handleFieldChange('endpoint', e.target.value)}
-          placeholder="https://your-custom-endpoint.cognitiveservices.azure.com"
+          placeholder="https://your-custom-endpoint.api.cognitive.microsoft.com"
           className={cn(
             'w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500',
             formErrors.endpoint ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500',

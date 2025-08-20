@@ -268,7 +268,7 @@ export class AuthenticationHandler {
 
       this.authState.metrics.successfulAuth++;
       this.emitEvent('authentication_success', 'Authentication configured successfully', {
-        region: config.region,
+        region: config.serviceRegion,
         hasCustomEndpoint: !!config.endpoint,
       });
 

@@ -159,6 +159,16 @@ export class JobTracker {
     const job = this.trackedJobs.get(jobId);
     if (!job) return;
 
+    // Only stop tracking if job is in a final state
+    const finalStates: JobProcessingStatus[] = ['completed', 'failed', 'cancelled'];
+    if (!finalStates.includes(job.executionContext.status)) {
+      console.warn(
+        `[JobTracker] Attempted to stop tracking job ${jobId} in non-final state: ${job.executionContext.status}`,
+      );
+      return;
+    }
+
+    console.log(`[JobTracker] Stopping tracking for job ${jobId} (status: ${job.executionContext.status})`);
     this.trackedJobs.delete(jobId);
     this.jobProgress.delete(jobId);
 
@@ -166,8 +176,6 @@ export class JobTracker {
     if (job.executionContext.status === 'cancelled') {
       this.jobEvents.delete(jobId);
     }
-
-    console.log(`[JobTracker] Stopped tracking job: ${jobId}`);
   }
 
   /**
@@ -330,7 +338,20 @@ export class JobTracker {
    * Get all tracked jobs
    */
   getAllJobs(): OrchestrationJob[] {
-    return Array.from(this.trackedJobs.values());
+    const jobs = Array.from(this.trackedJobs.values());
+
+    // Debug logging for state sync diagnosis
+    console.log('[JobTracker] getAllJobs() called:', {
+      totalTracked: jobs.length,
+      jobStatuses: jobs.map(job => ({
+        id: job.jobId,
+        status: job.executionContext.status,
+        startedAt: job.executionContext.startedAt,
+      })),
+      mapSize: this.trackedJobs.size,
+    });
+
+    return jobs;
   }
 
   /**

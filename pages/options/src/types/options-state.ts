@@ -63,7 +63,7 @@ export interface ConfigurationForm {
   /** Azure subscription key */
   subscriptionKey: string;
   /** Azure service region */
-  region: AzureRegion;
+  serviceRegion: AzureRegion;
   /** Default transcription language */
   language: string;
   /** Custom endpoint URL */

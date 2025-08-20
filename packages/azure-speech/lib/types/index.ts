@@ -76,7 +76,7 @@ export type DiarizationStatus = 'NotStarted' | 'Running' | 'Succeeded' | 'Failed
  */
 export interface AzureSpeechConfig {
   subscriptionKey: string;
-  region: AzureRegion;
+  serviceRegion: AzureRegion;
   language: string;
   enableLogging?: boolean;
   endpoint?: string;

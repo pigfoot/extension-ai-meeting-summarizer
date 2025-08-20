@@ -298,7 +298,7 @@ const checkQuota = async (
  * Generate cache key for validation results
  */
 const getCacheKey = (config: AuthConfig, options: ApiKeyValidationOptions): string => {
-  const key = `${config.subscriptionKey}-${config.region}-${JSON.stringify(options)}`;
+  const key = `${config.subscriptionKey}-${config.serviceRegion}-${JSON.stringify(options)}`;
   return btoa(key).replace(/[^a-zA-Z0-9]/g, '');
 };
 
@@ -367,7 +367,7 @@ export class CredentialValidator {
     errors.push(...validateSubscriptionKeyFormat(config.subscriptionKey));
 
     // Validate region
-    const regionErrors = validateRegion(config.region);
+    const regionErrors = validateRegion(config.serviceRegion);
     errors.push(...regionErrors);
 
     // If basic validation failed, return early
@@ -389,14 +389,14 @@ export class CredentialValidator {
     if (validationOptions.testConnectivity) {
       const connectivityResult = await testConnectivity(
         config.subscriptionKey,
-        config.region as AzureRegion,
+        config.serviceRegion as AzureRegion,
         validationOptions.timeout,
       );
 
       if (!connectivityResult.success && connectivityResult.error) {
         errors.push(connectivityResult.error);
       } else if (connectivityResult.success) {
-        validatedRegion = config.region as AzureRegion;
+        validatedRegion = config.serviceRegion as AzureRegion;
 
         if (connectivityResult.responseTime && connectivityResult.responseTime > 5000) {
           warnings.push(`Slow response time: ${connectivityResult.responseTime}ms`);
@@ -465,9 +465,9 @@ export class CredentialValidator {
     const endpoints: HealthCheckResult['endpoints'] = [];
     const errors: AuthenticationError[] = [];
 
-    const baseEndpoint = AZURE_SPEECH_ENDPOINTS[config.region as AzureRegion];
+    const baseEndpoint = AZURE_SPEECH_ENDPOINTS[config.serviceRegion as AzureRegion];
     if (!baseEndpoint) {
-      errors.push(createAuthError('INVALID_REGION', `No endpoint found for region: ${config.region}`));
+      errors.push(createAuthError('INVALID_REGION', `No endpoint found for region: ${config.serviceRegion}`));
 
       return {
         isHealthy: false,

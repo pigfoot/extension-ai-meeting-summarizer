@@ -13,10 +13,10 @@ export class SpeechConfigBuilder {
   private config: AzureSpeechConfig;
   private transcriptionConfig?: TranscriptionConfig;
 
-  constructor(subscriptionKey: string, region: AzureRegion) {
+  constructor(subscriptionKey: string, serviceRegion: AzureRegion) {
     this.config = {
       subscriptionKey,
-      region,
+      serviceRegion,
       language: 'en-US', // Default language
       enableLogging: false,
     };
@@ -77,7 +77,7 @@ export class SpeechConfigBuilder {
   } {
     return {
       subscriptionKey: this.config.subscriptionKey,
-      region: this.config.region,
+      region: this.config.serviceRegion,
       language: this.config.language,
       ...(this.config.endpoint && { endpoint: this.config.endpoint }),
     };
@@ -195,10 +195,10 @@ export const validateSpeechConfig = (
   }
 
   // Validate region
-  if (!config.region) {
+  if (!config.serviceRegion) {
     errors.push('Region is required');
-  } else if (!(config.region in RegionalEndpoints)) {
-    errors.push(`Unsupported region: ${config.region}`);
+  } else if (!(config.serviceRegion in RegionalEndpoints)) {
+    errors.push(`Unsupported region: ${config.serviceRegion}`);
   }
 
   // Validate language

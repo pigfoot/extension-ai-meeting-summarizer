@@ -161,7 +161,13 @@ export class JobCoordinator implements JobOrchestrator {
    * Check if Azure Speech service is available
    */
   isAzureSpeechAvailable(): boolean {
-    return !!this.azureSpeechService && this.azureConfig.enabled;
+    const available = !!this.azureSpeechService && this.azureConfig.enabled;
+    console.log(`[JobCoordinator] isAzureSpeechAvailable check:`, {
+      azureSpeechService: !!this.azureSpeechService,
+      azureConfigEnabled: this.azureConfig.enabled,
+      result: available,
+    });
+    return available;
   }
 
   /**
@@ -217,6 +223,13 @@ export class JobCoordinator implements JobOrchestrator {
 
       // Update job status
       this.jobTracker.updateJobStatus(job.jobId, 'queued', 'Job submitted successfully');
+
+      // Restart job processing if it was stopped
+      if (!this.isProcessing && this.azureConfig.enabled) {
+        console.log('[JobCoordinator] 🚀 Restarting job processing due to new job submission');
+        this.isProcessing = true;
+        this.startJobProcessing();
+      }
 
       return job.jobId;
     } catch (error) {
@@ -448,24 +461,57 @@ export class JobCoordinator implements JobOrchestrator {
 
       // Get next job from queue
       console.log('[JobCoordinator] Checking for next job in queue...');
+
       const job = await this.queueManager.getNextJob();
 
       if (!job) {
-        console.log('[JobCoordinator] No jobs available in queue');
+        // Check if we should stop processing when queue is empty
+        const hasActiveJobs = this.activeExecutions.size > 0;
+        const hasQueuedJobs = totalQueued > 0;
+
+        if (!hasActiveJobs && !hasQueuedJobs) {
+          console.log('[JobCoordinator] 🛑 No active or queued jobs - stopping job processing to save resources');
+          this.stopJobProcessing();
+          this.isProcessing = false;
+        } else {
+          console.log('[JobCoordinator] No jobs available in queue but', {
+            activeJobs: this.activeExecutions.size,
+            queuedJobs: totalQueued,
+          });
+        }
         return;
       }
 
       console.log(`[JobCoordinator] Starting execution of job: ${job.jobId}`);
 
-      // Start job execution
-      const executionPromise = this.executeJob(job);
+      // Create job execution with timeout (5 minutes)
+      const JOB_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Job ${job.jobId} timed out after ${JOB_TIMEOUT}ms`));
+        }, JOB_TIMEOUT);
+      });
+
+      // Start job execution with timeout
+      const executionPromise = Promise.race([this.executeJob(job), timeoutPromise]);
+
       this.activeExecutions.set(job.jobId, executionPromise);
+      console.log(`[JobCoordinator] ⏰ Job ${job.jobId} started with ${JOB_TIMEOUT}ms timeout`);
 
       // Handle execution completion
       executionPromise
-        .then(result => this.handleJobCompletion(result))
-        .catch(error => this.handleJobError(job.jobId, error))
-        .finally(() => this.activeExecutions.delete(job.jobId));
+        .then(result => {
+          console.log(`[JobCoordinator] ✅ Job ${job.jobId} completed successfully`);
+          this.handleJobCompletion(result);
+        })
+        .catch(error => {
+          console.error(`[JobCoordinator] ❌ Job ${job.jobId} failed or timed out:`, error);
+          this.handleJobError(job.jobId, error);
+        })
+        .finally(() => {
+          console.log(`[JobCoordinator] 🧹 Cleaning up execution record for job: ${job.jobId}`);
+          this.activeExecutions.delete(job.jobId);
+        });
     } catch (error) {
       console.error('[JobCoordinator] Error processing jobs:', error);
     }
@@ -533,11 +579,25 @@ export class JobCoordinator implements JobOrchestrator {
     request: CreateTranscriptionJobRequest,
   ): Promise<TranscriptionResult> {
     console.log(`[JobCoordinator] executeAzureTranscription started for job: ${job.jobId}`);
+    console.log(`[JobCoordinator] 🔍 Execution context:`, {
+      jobId: job.jobId,
+      audioUrl: job.audioUrl?.substring(0, 50) + '...',
+      hasAzureSpeechService: !!this.azureSpeechService,
+      azureConfigEnabled: this.azureConfig.enabled,
+      maxConcurrentCalls: this.azureConfig.maxConcurrentCalls,
+      currentActiveExecutions: this.activeExecutions.size,
+    });
 
     // Check if Azure Speech service is available
     if (!this.isAzureSpeechAvailable()) {
-      throw new Error('Azure Speech service not initialized or not available');
+      const error = 'Azure Speech service not initialized or not available';
+      console.error(`[JobCoordinator] ❌ ${error}`);
+      throw new Error(error);
     }
+
+    console.log(
+      `[JobCoordinator] ✅ Azure Speech service available, proceeding with transcription for job: ${job.jobId}`,
+    );
 
     try {
       // Update progress - submitting to Azure
@@ -945,18 +1005,30 @@ export class JobCoordinator implements JobOrchestrator {
    */
   private async handleJobError(jobId: string, error: unknown): Promise<void> {
     try {
+      console.error(`[JobCoordinator] 🚨 JOB ERROR HANDLER CALLED for job: ${jobId}`, error);
+
       const orchestrationError =
         error instanceof Error ? this.createExecutionError(jobId, error) : (error as JobOrchestrationError);
 
+      console.error(`[JobCoordinator] 📝 Recording error in JobTracker for job: ${jobId}`);
       // Record error in tracker
       this.jobTracker.recordJobError(jobId, orchestrationError);
 
+      console.error(`[JobCoordinator] 🔄 Calling queueManager.failJob for job: ${jobId}`);
       // Handle error in queue manager (may retry or mark as failed)
       await this.queueManager.failJob(jobId, orchestrationError);
 
-      console.error(`[JobCoordinator] Job ${jobId} failed:`, orchestrationError.message);
+      console.error(`[JobCoordinator] ❌ Job ${jobId} failed with error:`, {
+        type: orchestrationError.type,
+        message: orchestrationError.message,
+        severity: orchestrationError.severity,
+        recoverable: orchestrationError.recoverable,
+      });
+
+      // Update JobTracker status to failed
+      this.jobTracker.updateJobStatus(jobId, 'failed', `Job execution failed: ${orchestrationError.message}`);
     } catch (handlingError) {
-      console.error(`[JobCoordinator] Error handling job error for ${jobId}:`, handlingError);
+      console.error(`[JobCoordinator] 💥 CRITICAL: Error handling job error for ${jobId}:`, handlingError);
     }
   }
 

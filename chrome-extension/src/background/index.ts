@@ -4,13 +4,27 @@ import { BackgroundMain } from './services/background-main';
 
 // Initialize background service main coordinator
 let backgroundService: BackgroundMain | null = null;
+let isInitializing = false;
+let isInitialized = false;
 
 /**
  * Initialize the enhanced background service system
  */
 const initializeBackgroundService = async (): Promise<void> => {
+  // Prevent duplicate initialization
+  if (isInitializing) {
+    console.log('[Background] ⏳ Background service already initializing, skipping...');
+    return;
+  }
+
+  if (isInitialized) {
+    console.log('[Background] ✅ Background service already initialized, skipping...');
+    return;
+  }
+
   try {
-    console.log('[Background] Initializing enhanced background service');
+    isInitializing = true;
+    console.log('[Background] 🚀 Initializing enhanced background service');
 
     // Create background service coordinator
     backgroundService = new BackgroundMain({
@@ -36,7 +50,8 @@ const initializeBackgroundService = async (): Promise<void> => {
     // Initialize the background service
     await backgroundService.initialize();
 
-    console.log('[Background] Enhanced background service initialized successfully');
+    isInitialized = true;
+    console.log('[Background] ✅ Enhanced background service initialized successfully');
 
     // Log service statistics
     const stats = backgroundService.getStats();
@@ -46,10 +61,12 @@ const initializeBackgroundService = async (): Promise<void> => {
       totalOperations: stats.totalOperations,
     });
   } catch (error) {
-    console.error('[Background] Failed to initialize enhanced background service:', error);
-
+    console.error('[Background] ❌ Failed to initialize enhanced background service:', error);
+    backgroundService = null;
     // Fallback to basic initialization
     console.log('[Background] Falling back to basic initialization');
+  } finally {
+    isInitializing = false;
   }
 };
 
@@ -91,6 +108,62 @@ const handleExtensionShutdown = async (): Promise<void> => {
  * Get background service instance
  */
 const getBackgroundService = (): BackgroundMain | null => backgroundService;
+
+// OLD FALLBACK HANDLER REMOVED - Using simplified direct handler instead
+
+// Register message handler
+
+// CRITICAL: Add handler immediately to ensure it's first in line
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  try {
+    if (message?.type === 'GET_STATUS') {
+      const response = {
+        status: 'connected',
+        timestamp: new Date().toISOString(),
+      };
+      sendResponse(response);
+      return true;
+    }
+
+    // For all other messages, delegate to backgroundService if available
+    if (backgroundService) {
+      try {
+        const messageRouter = backgroundService.getSubsystem('messageRouter');
+        if (messageRouter && typeof messageRouter.routeMessage === 'function') {
+          messageRouter
+            .routeMessage(message, sender)
+            .then(response => {
+              sendResponse(response);
+            })
+            .catch(error => {
+              console.error('[Background] MessageRouter error:', error);
+              sendResponse({
+                success: false,
+                error: error instanceof Error ? error.message : 'MessageRouter failed',
+              });
+            });
+          return true; // Keep channel open for async response
+        }
+      } catch (error) {
+        console.error('[Background] ❌ Delegation failed:', error);
+      }
+    }
+
+    // Fallback response for unsupported messages
+    sendResponse({
+      success: false,
+      error: 'Background service not ready or message type not supported',
+      messageType: message?.type,
+    });
+    return true;
+  } catch (error) {
+    console.error('[Background] Direct handler error:', error);
+    sendResponse({ error: 'Direct handler failed' });
+    return true;
+  }
+});
+
+console.log('[Background] ✅ DIRECT message handler registered');
 
 // Handle service worker installation and startup
 chrome.runtime.onInstalled.addListener(details => {

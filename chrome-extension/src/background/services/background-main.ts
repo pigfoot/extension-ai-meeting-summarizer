@@ -962,6 +962,23 @@ export class BackgroundMain {
     this.subsystems.set('jobTracker', this.jobTracker);
     this.updateSubsystemHealth('jobTracker', 'healthy');
 
+    // Set up state synchronization between JobQueueManager and JobTracker
+    this.jobQueueManager.onStateChange(event => {
+      console.log('[BackgroundMain] Job state change:', event.jobId, event.previousState, '→', event.newState);
+
+      // Sync JobTracker with JobQueueManager state changes
+      if (event.newState === 'processing' && this.jobTracker) {
+        // Update JobTracker to reflect that job is now processing
+        try {
+          // Get the job from JobTracker and update its internal state
+          this.jobTracker.updateJobStatus(event.jobId, 'processing', 'job_started_processing');
+          console.log('[BackgroundMain] ✅ JobTracker synced: job', event.jobId, 'now processing');
+        } catch (error) {
+          console.error('[BackgroundMain] ❌ Failed to sync JobTracker state:', error);
+        }
+      }
+    });
+
     // Initialize job coordinator with all required parameters
     this.jobCoordinator = new JobCoordinator(this.jobQueueManager, this.jobTracker, {
       enabled: true,
@@ -1315,30 +1332,17 @@ export class BackgroundMain {
 
   /**
    * Register service worker event handlers
+   * NOTE: Most handlers are registered in background/index.ts to ensure they're available
+   * even if BackgroundMain initialization fails
    */
   private registerEventHandlers(): void {
-    // Handle extension startup
-    chrome.runtime.onStartup.addListener(() => {
-      this.handleExtensionStartup();
-    });
+    // NOTE: onStartup, onInstalled, onSuspend listeners are handled by background/index.ts
+    // to prevent "Could not establish connection" errors during initialization
 
-    // Handle extension installation
-    chrome.runtime.onInstalled.addListener(details => {
-      this.handleExtensionInstalled(details);
-    });
+    // NOTE: onMessage listener is handled by fallback handler in background/index.ts
+    // to prevent "Could not establish connection" errors during initialization
 
-    // Handle service worker suspension
-    chrome.runtime.onSuspend.addListener(() => {
-      this.handleSuspension();
-    });
-
-    // Handle messages from other extension components
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      this.handleMessage(message, sender, sendResponse);
-      return true; // Keep message channel open for async response
-    });
-
-    // Handle connection requests
+    // Handle connection requests (this is BackgroundMain-specific)
     chrome.runtime.onConnect.addListener(port => {
       this.handleConnection(port);
     });

@@ -10,6 +10,7 @@ const Popup = () => {
   );
   const [activeJobs, setActiveJobs] = useState<unknown[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   useEffect(() => {
     // Try to connect to background service
@@ -44,13 +45,48 @@ const Popup = () => {
         if (response && response.jobs) {
           console.log(`[Popup] Setting ${response.jobs.length} active jobs:`, response.jobs);
           setActiveJobs(response.jobs);
+
+          // Clear debug info if we have jobs
+          if (response.jobs.length > 0) {
+            setDebugInfo(null);
+          }
         } else {
           console.warn('[Popup] No jobs in response or invalid response:', response);
           setActiveJobs([]);
+
+          // If connected but no jobs, run diagnostic
+          if (connectionStatus === 'connected') {
+            await runJobStateDiagnostic();
+          }
         }
       } catch (error) {
         console.error('[Popup] Failed to get active jobs:', error);
         setActiveJobs([]);
+      }
+    };
+
+    // Auto-diagnostic when connected but no jobs shown
+    const runJobStateDiagnostic = async () => {
+      try {
+        console.log('[Popup] Running job state diagnostic...');
+        const debugResponse = await chrome.runtime.sendMessage({ type: 'DEBUG_JOB_STATE' });
+        console.log('[Popup] DEBUG_JOB_STATE response:', debugResponse);
+
+        if (debugResponse && !debugResponse.error) {
+          const { jobTracker, jobQueue, analysis } = debugResponse;
+          const diagnostic = `Jobs State Analysis:
+• JobTracker: ${jobTracker?.totalJobs || 0} total jobs
+• JobQueue: ${jobQueue?.totalQueued || 0} queued jobs  
+• Analysis: ${analysis?.trackedButNotQueued || 0} tracked but not queued, ${analysis?.possibleStuckJobs || 0} possibly stuck`;
+
+          setDebugInfo(diagnostic);
+          console.log('[Popup] Diagnostic info:', diagnostic);
+        } else {
+          setDebugInfo(`Diagnostic failed: ${debugResponse?.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        console.log('[Popup] Diagnostic request failed:', error);
+        setDebugInfo(`Diagnostic error: ${error instanceof Error ? error.message : 'Unknown'}`);
       }
     };
 
@@ -64,7 +100,7 @@ const Popup = () => {
       clearInterval(connectionInterval);
       clearInterval(jobsInterval);
     };
-  }, []);
+  }, [connectionStatus]);
 
   const startAudioCapture = async () => {
     try {
@@ -120,7 +156,40 @@ const Popup = () => {
             <div className="text-center">
               <h2 className="mb-2 text-lg font-semibold text-gray-900">Active Jobs</h2>
               {activeJobs.length === 0 ? (
-                <p className="text-sm text-gray-500">No active transcription jobs</p>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-500">No active transcription jobs</p>
+                  {connectionStatus === 'connected' && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700">
+                      <div className="flex items-center gap-2">
+                        <span>ℹ️</span>
+                        <span>
+                          Connected to background service. Jobs may be processing in background.
+                          <br />
+                          <strong>Status sync improved</strong> - processing jobs should now appear here.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {debugInfo && connectionStatus === 'connected' && (
+                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-800">
+                      <div className="flex items-start gap-2">
+                        <span>🔍</span>
+                        <div>
+                          <div className="font-medium">Diagnostic Info:</div>
+                          <pre className="mt-1 whitespace-pre-wrap">{debugInfo}</pre>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {connectionStatus === 'error' && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                      <div className="flex items-center gap-2">
+                        <span>⚠️</span>
+                        <span>Unable to connect to background service. Job status unavailable.</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-2">
                   {activeJobs.map((job, index) => (

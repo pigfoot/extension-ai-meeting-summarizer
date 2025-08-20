@@ -118,11 +118,11 @@ export class ConfigValidator {
       case 'encryptedApiKey':
         issues.push(...this.validateApiKey(value as string));
         break;
-      case 'region':
+      case 'serviceRegion':
         issues.push(...this.validateRegion(value as string));
         break;
       case 'endpoint':
-        issues.push(...this.validateEndpoint(value as string, context?.region));
+        issues.push(...this.validateEndpoint(value as string, context?.serviceRegion));
         break;
       case 'language':
         issues.push(...this.validateLanguage(value as string));
@@ -212,10 +212,10 @@ export class ConfigValidator {
     }
 
     // Check region optimization
-    if (config.region) {
+    if (config.serviceRegion) {
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const userRegion = this.getRegionFromTimezone(userTimezone);
-      if (userRegion && config.region !== userRegion) {
+      if (userRegion && config.serviceRegion !== userRegion) {
         recommendations.push(`Consider using region '${userRegion}' for better performance based on your location`);
       }
     }
@@ -259,12 +259,12 @@ export class ConfigValidator {
     if (apiKeyTest.status === 'passed') score += 1;
 
     // 2. Region validation
-    const regionTest = this.runRegionValidation(config.region);
+    const regionTest = this.runRegionValidation(config.serviceRegion);
     tests.push(regionTest);
     if (regionTest.status === 'passed') score += 1;
 
     // 3. Endpoint validation
-    const endpointTest = this.runEndpointValidation(config.endpoint, config.region);
+    const endpointTest = this.runEndpointValidation(config.endpoint, config.serviceRegion);
     tests.push(endpointTest);
     if (endpointTest.status === 'passed') score += 1;
 
@@ -281,7 +281,7 @@ export class ConfigValidator {
     // 6. Connectivity test (if enabled)
     let connectivityTest: ValidationTest;
     if (this.validationConfig.enableConnectivityTests && config.encryptedApiKey) {
-      connectivityTest = await this.runConnectivityTest(config.endpoint, config.encryptedApiKey, config.region);
+      connectivityTest = await this.runConnectivityTest(config.endpoint, config.encryptedApiKey, config.serviceRegion);
       tests.push(connectivityTest);
       if (connectivityTest.status === 'passed') score += 1;
     } else {
@@ -938,7 +938,7 @@ export class ConfigValidator {
    */
   private generateConfigHash(config: SecureConfigRecord): string {
     const hashData = {
-      region: config.region,
+      region: config.serviceRegion,
       endpoint: config.endpoint,
       language: config.language,
       // Don't include API key in hash for security

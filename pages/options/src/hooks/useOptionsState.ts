@@ -252,7 +252,7 @@ const createMockValidationService = (): ValidationService => ({
   async testConfiguration(config) {
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    const success = config.subscriptionKey.length > 10 && config.region;
+    const success = config.subscriptionKey.length > 10 && config.serviceRegion;
 
     return {
       status: success ? 'success' : 'failure',
@@ -266,7 +266,7 @@ const createMockValidationService = (): ValidationService => ({
             connection: {
               success: true,
               latency: 156,
-              endpoint: `https://${config.region}.api.cognitive.microsoft.com`,
+              endpoint: `https://${config.serviceRegion}.api.cognitive.microsoft.com`,
             },
             authentication: { success: true, keyValid: true, permissions: ['speech-to-text', 'translation'] },
             service: { available: true, version: '3.1', features: ['speaker-identification', 'profanity-filter'] },
@@ -324,11 +324,11 @@ const createMockValidationService = (): ValidationService => ({
       };
     }
 
-    // Validate region
+    // Validate service region
     fieldValidation.region = {
-      isValid: !!form.region,
+      isValid: !!form.serviceRegion,
       isValidating: false,
-      messages: form.region ? [] : [{ severity: 'error', message: 'Region is required' }],
+      messages: form.serviceRegion ? [] : [{ severity: 'error', message: 'Region is required' }],
       isTouched: true,
     };
 
@@ -359,7 +359,7 @@ const createMockValidationService = (): ValidationService => ({
           messages.push({ severity: 'warning', message: 'Subscription key appears to be short' });
         }
         break;
-      case 'region':
+      case 'serviceRegion':
         if (!value) {
           isValid = false;
           messages.push({ severity: 'error', message: 'Region is required' });
@@ -555,7 +555,7 @@ export const useOptionsState = (options: UseOptionsStateOptions = {}) => {
       try {
         const form: ConfigurationForm = {
           subscriptionKey: config.subscriptionKey,
-          region: config.region,
+          serviceRegion: config.serviceRegion,
           language: config.language || 'en-US',
           endpoint: config.endpoint,
           enableLogging: config.enableLogging || false,
@@ -842,7 +842,7 @@ export const useOptionsState = (options: UseOptionsStateOptions = {}) => {
     hasUnsavedChanges: state.isDirty,
     isConfigurationValid: state.isConfigValid,
     canSave: state.isDirty && !state.isSubmitting && !state.isLoading,
-    canTest: !state.isLoading && state.azureConfig.subscriptionKey && state.azureConfig.region,
+    canTest: !state.isLoading && state.azureConfig.subscriptionKey && state.azureConfig.serviceRegion,
 
     // Utilities
     refresh: loadInitialData,

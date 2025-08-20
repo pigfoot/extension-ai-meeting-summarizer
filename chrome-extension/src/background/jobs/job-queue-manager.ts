@@ -16,6 +16,24 @@ import type {
 } from '../types';
 
 /**
+ * Job state change event emitted when job moves between queue states
+ */
+export interface JobStateChangeEvent {
+  /** Job identifier */
+  jobId: string;
+  /** Previous state */
+  previousState: 'queued' | 'processing' | 'completed' | 'failed';
+  /** New state */
+  newState: 'queued' | 'processing' | 'completed' | 'failed';
+  /** The job object */
+  job: OrchestrationJob;
+  /** Change timestamp */
+  timestamp: string;
+  /** Change context */
+  context?: string;
+}
+
+/**
  * Queue operation result
  */
 export interface QueueOperationResult {
@@ -57,6 +75,7 @@ export class JobQueueManager {
   private processingInterval: NodeJS.Timeout | null = null;
   private metricsInterval: NodeJS.Timeout | null = null;
   private resourceAllocations = new Map<string, ResourceAllocation>();
+  private stateChangeHandlers = new Set<(event: JobStateChangeEvent) => void>();
 
   constructor(config: JobQueueConfig, schedulerConfig: JobSchedulerConfig) {
     this.config = config;
@@ -633,9 +652,20 @@ export class JobQueueManager {
    * Move job to processing state
    */
   private moveJobToProcessing(job: OrchestrationJob): void {
+    const previousState = job.executionContext.status;
     job.executionContext.status = 'processing';
     job.executionContext.startedAt = new Date().toISOString();
     this.state.processingJobs.set(job.jobId, job);
+
+    // Emit state change event for JobTracker synchronization
+    this.emitStateChange({
+      jobId: job.jobId,
+      previousState: previousState as 'queued' | 'processing' | 'completed' | 'failed',
+      newState: 'processing',
+      job,
+      timestamp: new Date().toISOString(),
+      context: 'job_coordinator_processing_start',
+    });
   }
 
   /**
@@ -675,6 +705,33 @@ export class JobQueueManager {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Register handler for job state changes
+   */
+  onStateChange(handler: (event: JobStateChangeEvent) => void): void {
+    this.stateChangeHandlers.add(handler);
+  }
+
+  /**
+   * Remove state change handler
+   */
+  removeStateChangeHandler(handler: (event: JobStateChangeEvent) => void): void {
+    this.stateChangeHandlers.delete(handler);
+  }
+
+  /**
+   * Emit state change event
+   */
+  private emitStateChange(event: JobStateChangeEvent): void {
+    for (const handler of this.stateChangeHandlers) {
+      try {
+        handler(event);
+      } catch (error) {
+        console.error('[JobQueueManager] State change handler error:', error);
+      }
+    }
   }
 
   /**

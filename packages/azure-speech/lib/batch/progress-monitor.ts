@@ -529,12 +529,12 @@ export class ProgressMonitor {
    */
   private async checkJobStatus(azureJobId: string): Promise<ProgressMonitorResult> {
     const startTime = Date.now();
-    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.region as AzureRegion];
+    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.serviceRegion as AzureRegion];
 
     if (!endpoint) {
       const error = createProgressMonitorError(
         'UNKNOWN_ERROR',
-        `No batch transcription endpoint found for region: ${this.authConfig.region}`,
+        `No batch transcription endpoint found for region: ${this.authConfig.serviceRegion}`,
       );
 
       return {
@@ -876,13 +876,13 @@ export class ProgressMonitor {
       };
     }
 
-    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.region as AzureRegion];
+    const endpoint = BATCH_TRANSCRIPTION_ENDPOINTS[this.authConfig.serviceRegion as AzureRegion];
 
     if (!endpoint) {
       return {
         success: false,
         responseTime: Date.now() - startTime,
-        error: `No endpoint found for region: ${this.authConfig.region}`,
+        error: `No endpoint found for region: ${this.authConfig.serviceRegion}`,
       };
     }
 
